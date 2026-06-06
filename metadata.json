@@ -1,0 +1,6 @@
+{
+  "name": "MW Adventure Park Booking System",
+  "description": "Online Booking and Reservation System for MW Adventure Park featuring Customer Registration & Login.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

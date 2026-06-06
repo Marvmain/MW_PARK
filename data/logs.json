@@ -1,0 +1,18 @@
+[
+  {
+    "id": "b019a8c7-1df9-407b-a690-b7c92566eb69",
+    "userId": "6ada1d20-d883-4d14-99b8-9a33d632b043",
+    "action": "User Registration",
+    "timestamp": "2026-06-06T08:18:46.581Z",
+    "ip": "127.0.0.1",
+    "success": true
+  },
+  {
+    "id": "70c8d8f7-aea8-4a5e-9167-81bda0d98ca9",
+    "userId": "6ada1d20-d883-4d14-99b8-9a33d632b043",
+    "action": "User Login Success",
+    "timestamp": "2026-06-06T08:19:19.542Z",
+    "ip": "127.0.0.1",
+    "success": true
+  }
+]
