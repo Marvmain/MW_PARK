@@ -5,7 +5,6 @@ import { supabase, supabaseAdmin } from '../../src/lib/supabaseClient';
 
 export const UPLOADS_DIR = path.join(process.cwd(), 'data', 'uploads');
 
-// Secret salt for password hashing
 const HASH_SECRET = process.env.HASH_SECRET || 'mw-adventure-park-secret-salt-2026';
 
 export interface UserRecord extends Customer {
@@ -16,13 +15,13 @@ function mapCustomerRow(row: Record<string, unknown>, email = ''): Customer {
   return {
     id: row.id as string,
     fullName: row.full_name as string,
-    email,
+    email: (row.email as string) || email,
     phone: row.phone as string,
     dob: row.dob as string,
     address: (row.address as string) || '',
     emergencyContactName: row.emergency_contact_name as string,
     emergencyContactPhone: row.emergency_contact_phone as string,
-    createdAt: row.created_at as string
+    createdAt: (row.created_at as string) || new Date().toISOString(),
   };
 }
 
@@ -33,12 +32,7 @@ export const DB = {
       .select('id')
       .eq('phone', phone)
       .maybeSingle();
-
-    if (error) {
-      console.error('Error checking phone registration:', error);
-      return false;
-    }
-
+    if (error) { console.error('isPhoneRegistered error:', error); return false; }
     return !!data;
   },
 
@@ -48,23 +42,13 @@ export const DB = {
       .select('*')
       .eq('id', id)
       .maybeSingle();
-
-    if (error || !data) {
-      if (error) console.error('Error fetching customer:', error);
-      return null;
-    }
-
+    if (error || !data) { if (error) console.error('getCustomerById error:', error); return null; }
     return mapCustomerRow(data, email);
   },
 
   async createCustomerProfile(profile: {
-    id: string;
-    fullName: string;
-    phone: string;
-    dob: string;
-    address: string;
-    emergencyContactName: string;
-    emergencyContactPhone: string;
+    id: string; fullName: string; phone: string; dob: string;
+    address: string; emergencyContactName: string; emergencyContactPhone: string;
   }): Promise<{ error: string | null }> {
     const { error } = await supabaseAdmin
       .from('customers')
@@ -75,304 +59,281 @@ export const DB = {
         dob: profile.dob,
         address: profile.address,
         emergency_contact_name: profile.emergencyContactName,
-        emergency_contact_phone: profile.emergencyContactPhone
+        emergency_contact_phone: profile.emergencyContactPhone,
       });
-
-    if (error) {
-      console.error('Error creating customer profile:', error);
-      return { error: error.message };
-    }
-
+    if (error) { console.error('createCustomerProfile error:', error); return { error: error.message }; }
     return { error: null };
   },
 
+  // ─── USERS ──────────────────────────────────────────────────────────────────
+
   async getUsers(): Promise<UserRecord[]> {
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*');
-      
-      if (error) {
-        console.error('Error fetching users from Supabase:', error);
-        return [];
-      }
-      
-      return (data || []).map(customer => ({
-        ...mapCustomerRow(customer),
-        passwordHash: ''
-      }));
-    } catch (e) {
-      console.error('Failed to fetch users:', e);
-      return [];
-    }
+    const { data, error } = await supabase.from('customers').select('*');
+    if (error) { console.error('getUsers error:', error); return []; }
+    return (data || []).map(row => ({ ...mapCustomerRow(row), passwordHash: '' }));
   },
 
-  async saveUsers(users: UserRecord[]): Promise<void> {
-    try {
-      for (const user of users) {
-        const { error } = await supabase
-          .from('customers')
-          .upsert({
-            id: user.id,
-            full_name: user.fullName,
-            phone: user.phone,
-            dob: user.dob,
-            address: user.address,
-            emergency_contact_name: user.emergencyContactName,
-            emergency_contact_phone: user.emergencyContactPhone
-          });
-        
-        if (error) {
-          console.error('Error saving user to Supabase:', error);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to save users:', e);
-    }
+  async saveUsers(_users: UserRecord[]): Promise<void> {
+    // No-op: users are managed via Supabase Auth + customers table directly
   },
+
+  // ─── BOOKINGS ───────────────────────────────────────────────────────────────
 
   async getBookings(): Promise<Booking[]> {
-    try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          customers:customer_id(full_name, phone, email),
-          activities:activity_id(name, adult_rate, child_rate),
-          cottages:cottage_id(name, rate_per_day)
-        `);
-      
-      if (error) {
-        console.error('Error fetching bookings from Supabase:', error);
-        return [];
-      }
-      
-      return (data || []).map(booking => ({
-        id: booking.id,
-        customerId: booking.customer_id,
-        customer: {
-          id: booking.customer_id,
-          full_name: booking.customers?.full_name || '',
-          email: booking.customers?.email || '',
-          phone: booking.customers?.phone || ''
-        },
-        activityId: booking.activity_id,
-        activity: booking.activities?.name || '',
-        cottageId: booking.cottage_id,
-        cottage: booking.cottages?.name || '',
-        booking_date: booking.booking_date,
-        schedule_time: booking.schedule_time,
-        number_of_adults: booking.number_of_adults,
-        number_of_children: booking.number_of_children,
-        total_amount: booking.total_amount,
-        payment_status: booking.payment_status,
-        admin_notes: booking.admin_notes,
-        created_at: booking.created_at
-      }));
-    } catch (e) {
-      console.error('Failed to fetch bookings:', e);
-      return [];
-    }
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) { console.error('getBookings error:', error); return []; }
+    return (data || []).map(row => ({
+      id: row.id,
+      customerId: row.customer_id,
+      activityName: row.activity_name,
+      cottageName: row.cottage_name || undefined,
+      bookingDate: row.booking_date,
+      scheduleTime: row.schedule_time,
+      numberOfAdults: row.number_of_adults,
+      numberOfChildren: row.number_of_children,
+      totalAmount: row.total_amount,
+      paymentStatus: row.payment_status,
+      bookingStatus: row.booking_status || undefined,
+      paymentMethod: row.payment_method || undefined,
+      qrCodeToken: row.qr_code_token,
+      createdAt: row.created_at,
+      adminNotes: row.admin_notes || undefined,
+    }));
   },
 
   async saveBookings(bookings: Booking[]): Promise<void> {
-    try {
-      for (const booking of bookings) {
-        const { error } = await supabase
-          .from('bookings')
-          .upsert({
-            id: booking.id,
-            customer_id: booking.customerId,
-            activity_id: booking.activityId,
-            cottage_id: booking.cottageId || null,
-            booking_date: booking.booking_date,
-            schedule_time: booking.schedule_time,
-            number_of_adults: booking.number_of_adults,
-            number_of_children: booking.number_of_children,
-            total_amount: booking.total_amount,
-            payment_status: booking.payment_status,
-            admin_notes: booking.admin_notes
-          });
-        
-        if (error) {
-          console.error('Error saving booking to Supabase:', error);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to save bookings:', e);
+    for (const b of bookings) {
+      const { error } = await supabase.from('bookings').upsert({
+        id: b.id,
+        customer_id: b.customerId,
+        activity_name: b.activityName,
+        cottage_name: b.cottageName || null,
+        booking_date: b.bookingDate,
+        schedule_time: b.scheduleTime,
+        number_of_adults: b.numberOfAdults,
+        number_of_children: b.numberOfChildren,
+        total_amount: b.totalAmount,
+        payment_status: b.paymentStatus,
+        booking_status: b.bookingStatus || null,
+        payment_method: b.paymentMethod || null,
+        qr_code_token: b.qrCodeToken,
+        admin_notes: (b as any).adminNotes || null,
+      });
+      if (error) console.error('saveBookings upsert error:', error);
     }
   },
+
+  async upsertBooking(b: Booking): Promise<void> {
+    const { error } = await supabase.from('bookings').upsert({
+      id: b.id,
+      customer_id: b.customerId,
+      activity_name: b.activityName,
+      cottage_name: b.cottageName || null,
+      booking_date: b.bookingDate,
+      schedule_time: b.scheduleTime,
+      number_of_adults: b.numberOfAdults,
+      number_of_children: b.numberOfChildren,
+      total_amount: b.totalAmount,
+      payment_status: b.paymentStatus,
+      booking_status: b.bookingStatus || null,
+      payment_method: b.paymentMethod || null,
+      qr_code_token: b.qrCodeToken,
+      admin_notes: (b as any).adminNotes || null,
+    });
+    if (error) console.error('upsertBooking error:', error);
+  },
+
+  async deleteBookingById(id: string): Promise<boolean> {
+    const { error } = await supabase.from('bookings').delete().eq('id', id);
+    if (error) { console.error('deleteBookingById error:', error); return false; }
+    return true;
+  },
+
+  async updateBookingFields(id: string, fields: Record<string, unknown>): Promise<Booking | null> {
+    const dbFields: Record<string, unknown> = {};
+    if (fields.paymentStatus !== undefined)   dbFields.payment_status  = fields.paymentStatus;
+    if (fields.bookingStatus !== undefined)   dbFields.booking_status  = fields.bookingStatus;
+    if (fields.paymentMethod !== undefined)   dbFields.payment_method  = fields.paymentMethod;
+    if (fields.adminNotes    !== undefined)   dbFields.admin_notes     = fields.adminNotes;
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .update(dbFields)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) { console.error('updateBookingFields error:', error); return null; }
+    return {
+      id: data.id,
+      customerId: data.customer_id,
+      activityName: data.activity_name,
+      cottageName: data.cottage_name || undefined,
+      bookingDate: data.booking_date,
+      scheduleTime: data.schedule_time,
+      numberOfAdults: data.number_of_adults,
+      numberOfChildren: data.number_of_children,
+      totalAmount: data.total_amount,
+      paymentStatus: data.payment_status,
+      bookingStatus: data.booking_status || undefined,
+      paymentMethod: data.payment_method || undefined,
+      qrCodeToken: data.qr_code_token,
+      createdAt: data.created_at,
+    };
+  },
+
+  // ─── LOGS ────────────────────────────────────────────────────────────────────
 
   async getLogs(): Promise<SecurityLog[]> {
-    try {
-      const { data, error } = await supabase
-        .from('security_audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching logs from Supabase:', error);
-        return [];
-      }
-      
-      return (data || []).map(log => ({
-        id: log.id,
-        userId: log.user_id,
-        action: log.action_type,
-        timestamp: log.created_at,
-        ip: log.ip_address,
-        success: log.is_success
-      }));
-    } catch (e) {
-      console.error('Failed to fetch logs:', e);
-      return [];
-    }
+    const { data, error } = await supabase
+      .from('security_audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) { console.error('getLogs error:', error); return []; }
+    return (data || []).map(row => ({
+      id: row.id,
+      userId: row.user_id || '',
+      action: row.action_type,
+      timestamp: row.created_at,
+      ip: row.ip_address || '127.0.0.1',
+      success: row.is_success,
+    }));
   },
 
-  async saveLogs(logs: SecurityLog[]): Promise<void> {
-    try {
-      for (const log of logs) {
-        const { error } = await supabase
-          .from('security_audit_logs')
-          .insert({
-            user_id: log.userId || null,
-            action_type: log.action,
-            ip_address: log.ip,
-            is_success: log.success
-          });
-        
-        if (error) {
-          console.error('Error saving log to Supabase:', error);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to save logs:', e);
-    }
-  },
-
-  async getPayments(): Promise<PaymentProof[]> {
-    try {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*');
-      
-      if (error) {
-        console.error('Error fetching payments from Supabase:', error);
-        return [];
-      }
-      
-      return (data || []).map(payment => ({
-        id: payment.id,
-        booking_id: payment.booking_id,
-        payment_method: payment.payment_method,
-        payment_reference_no: payment.payment_reference_no,
-        proof_screenshot_url: payment.proof_screenshot_url,
-        amount_paid: payment.amount_paid,
-        status: payment.verified_at ? 'verified' : 'pending',
-        verified_at: payment.verified_at,
-        verified_by: payment.verified_by,
-        admin_remarks: payment.admin_remarks,
-        created_at: payment.created_at
-      }));
-    } catch (e) {
-      console.error('Failed to fetch payments:', e);
-      return [];
-    }
-  },
-
-  async savePayments(payments: PaymentProof[]): Promise<void> {
-    try {
-      for (const payment of payments) {
-        const { error } = await supabase
-          .from('payments')
-          .upsert({
-            id: payment.id,
-            booking_id: payment.booking_id,
-            payment_method: payment.payment_method,
-            payment_reference_no: payment.payment_reference_no,
-            proof_screenshot_url: payment.proof_screenshot_url,
-            amount_paid: payment.amount_paid,
-            verified_at: payment.verified_at,
-            verified_by: payment.verified_by,
-            admin_remarks: payment.admin_remarks
-          });
-        
-        if (error) {
-          console.error('Error saving payment to Supabase:', error);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to save payments:', e);
-    }
-  },
-
-  async getReceipts(): Promise<Receipt[]> {
-    try {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .not('verified_at', 'is', null);
-      
-      if (error) {
-        console.error('Error fetching receipts from Supabase:', error);
-        return [];
-      }
-      
-      return (data || []).map(payment => ({
-        id: payment.id,
-        bookingId: payment.booking_id,
-        amount: payment.amount_paid,
-        payment_method: payment.payment_method,
-        reference: payment.payment_reference_no,
-        verified_at: payment.verified_at,
-        created_at: payment.created_at
-      }));
-    } catch (e) {
-      console.error('Failed to fetch receipts:', e);
-      return [];
-    }
-  },
-
-  async saveReceipts(receipts: Receipt[]): Promise<void> {
-    try {
-      for (const receipt of receipts) {
-        const { error } = await supabase
-          .from('payments')
-          .upsert({
-            id: receipt.id,
-            booking_id: receipt.bookingId,
-            amount_paid: receipt.amount,
-            verified_at: receipt.verified_at
-          });
-        
-        if (error) {
-          console.error('Error saving receipt to Supabase:', error);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to save receipts:', e);
-    }
-  },
-
-  hashPassword(password: string): string {
-    return crypto
-      .createHmac('sha256', HASH_SECRET)
-      .update(password)
-      .digest('hex');
+  async saveLogs(_logs: SecurityLog[]): Promise<void> {
+    // No-op: logs are appended via logSecurity()
   },
 
   async logSecurity(userId: string | null, action: string, ip: string, success: boolean): Promise<void> {
-    try {
-      await supabase
-        .from('security_audit_logs')
-        .insert({
-          user_id: userId,
-          action_type: action,
-          ip_address: ip,
-          is_success: success
-        });
-    } catch (e) {
-      console.error('Failed to log security event:', e);
+    const { error } = await supabase.from('security_audit_logs').insert({
+      user_id: userId || null,
+      action_type: action,
+      ip_address: ip,
+      is_success: success,
+    });
+    if (error) console.error('logSecurity error:', error);
+  },
+
+  // ─── PAYMENTS ────────────────────────────────────────────────────────────────
+
+  async getPayments(): Promise<PaymentProof[]> {
+    const { data, error } = await supabase
+      .from('payment_proofs')
+      .select('*')
+      .order('uploaded_at', { ascending: false });
+    if (error) { console.error('getPayments error:', error); return []; }
+    return (data || []).map(row => ({
+      id: row.id,
+      bookingId: row.booking_id,
+      customerId: row.customer_id,
+      amountPaid: row.amount_paid,
+      proofFileName: row.proof_file_name,
+      uploadedAt: row.uploaded_at,
+      status: row.status,
+      adminRemarks: row.admin_remarks || undefined,
+    }));
+  },
+
+  async savePayments(payments: PaymentProof[]): Promise<void> {
+    for (const p of payments) {
+      const { error } = await supabase.from('payment_proofs').upsert({
+        id: p.id,
+        booking_id: p.bookingId,
+        customer_id: p.customerId,
+        amount_paid: p.amountPaid,
+        proof_file_name: p.proofFileName,
+        uploaded_at: p.uploadedAt,
+        status: p.status,
+        admin_remarks: p.adminRemarks || null,
+      });
+      if (error) console.error('savePayments upsert error:', error);
     }
-  }
+  },
+
+  async upsertPayment(p: PaymentProof): Promise<void> {
+    const { error } = await supabase.from('payment_proofs').upsert({
+      id: p.id,
+      booking_id: p.bookingId,
+      customer_id: p.customerId,
+      amount_paid: p.amountPaid,
+      proof_file_name: p.proofFileName,
+      uploaded_at: p.uploadedAt,
+      status: p.status,
+      admin_remarks: p.adminRemarks || null,
+    });
+    if (error) console.error('upsertPayment error:', error);
+  },
+
+  async updatePaymentStatus(id: string, status: string, adminRemarks?: string): Promise<void> {
+    const { error } = await supabase
+      .from('payment_proofs')
+      .update({ status, admin_remarks: adminRemarks || null })
+      .eq('id', id);
+    if (error) console.error('updatePaymentStatus error:', error);
+  },
+
+  // ─── RECEIPTS ────────────────────────────────────────────────────────────────
+
+  async getReceipts(): Promise<Receipt[]> {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .order('issued_at', { ascending: false });
+    if (error) { console.error('getReceipts error:', error); return []; }
+    return (data || []).map(row => ({
+      id: row.id,
+      paymentId: row.payment_id,
+      bookingId: row.booking_id,
+      amountPaid: row.amount_paid,
+      paymentMethod: row.payment_method,
+      issuedAt: row.issued_at,
+      activityName: row.activity_name,
+      cottageName: row.cottage_name || undefined,
+      customerName: row.customer_name,
+      bookingDate: row.booking_date,
+    }));
+  },
+
+  async saveReceipts(receipts: Receipt[]): Promise<void> {
+    for (const r of receipts) {
+      const { error } = await supabase.from('receipts').upsert({
+        id: r.id,
+        payment_id: r.paymentId,
+        booking_id: r.bookingId,
+        amount_paid: r.amountPaid,
+        payment_method: r.paymentMethod,
+        issued_at: r.issuedAt,
+        activity_name: r.activityName,
+        cottage_name: r.cottageName || null,
+        customer_name: r.customerName,
+        booking_date: r.bookingDate,
+      });
+      if (error) console.error('saveReceipts upsert error:', error);
+    }
+  },
+
+  async insertReceipt(r: Receipt): Promise<void> {
+    const { error } = await supabase.from('receipts').insert({
+      id: r.id,
+      payment_id: r.paymentId,
+      booking_id: r.bookingId,
+      amount_paid: r.amountPaid,
+      payment_method: r.paymentMethod,
+      issued_at: r.issuedAt,
+      activity_name: r.activityName,
+      cottage_name: r.cottageName || null,
+      customer_name: r.customerName,
+      booking_date: r.bookingDate,
+    });
+    if (error) console.error('insertReceipt error:', error);
+  },
+
+  // ─── MISC ────────────────────────────────────────────────────────────────────
+
+  hashPassword(password: string): string {
+    return crypto.createHmac('sha256', HASH_SECRET).update(password).digest('hex');
+  },
 };
