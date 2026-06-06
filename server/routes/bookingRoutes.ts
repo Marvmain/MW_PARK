@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { BookingController } from '../controllers/bookingController';
+import { requireCustomer } from '../lib/middleware';
 
 const bookingRouter = Router();
+
+bookingRouter.use(requireCustomer);
 
 // Load bookings for logged-in user
 bookingRouter.get('/', BookingController.getMyBookings);

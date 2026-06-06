@@ -2,6 +2,14 @@
  * Types and interfaces for MW Adventure Park Booking System
  */
 
+export type UserRole = 'customer' | 'admin';
+export type AdminRole = 'super' | 'staff';
+
+export interface AdminUser {
+  username: string;
+  role: AdminRole;
+}
+
 export interface Customer {
   id: string;
   fullName: string;
@@ -22,10 +30,18 @@ export interface UserSession {
   userAgent: string;
 }
 
+export type ActivityName =
+  | 'Kawa Spa'
+  | 'Fish Spa'
+  | 'Kayak'
+  | 'Tub Rent'
+  | 'Life Vest Rent'
+  | 'Spider Web';
+
 export interface Booking {
   id: string;
   customerId: string;
-  activityName: 'Dumagat River Trekking' | 'Kayaking & Tubing' | 'Waterpark Day Pass' | 'Extreme Bamboo Rafting';
+  activityName: ActivityName;
   cottageName?: 'Riverfront Canopy Cabana' | 'Dumagat Stilt Lodge' | 'Forest Canopy Treehouse' | 'Pandan Bamboo Shelter' | 'None';
   bookingDate: string;
   scheduleTime: '08:00 AM' | '10:30 AM' | '01:30 PM' | '04:00 PM';
@@ -44,7 +60,7 @@ export interface PaymentProof {
   bookingId: string;
   customerId: string;
   amountPaid: number;
-  proofFileName: string; // path or filename stored in data/uploads/
+  proofFileName: string; // Supabase Storage public URL or legacy local uploads path
   uploadedAt: string;
   status: 'Pending' | 'Approved' | 'Rejected';
   adminRemarks?: string;
@@ -74,7 +90,7 @@ export interface SecurityLog {
 
 export interface Activity {
   id: string;
-  name: 'Dumagat River Trekking' | 'Kayaking & Tubing' | 'Waterpark Day Pass' | 'Extreme Bamboo Rafting';
+  name: ActivityName;
   tagline: string;
   description: string;
   longDescription: string;
@@ -83,6 +99,8 @@ export interface Activity {
   ageRequirement: string;
   adultRate: number;
   childRate: number;
+  primaryRateLabel?: string;
+  secondaryRateLabel?: string;
   image: string;
   highlights: string[];
   safetyGuidelines: string[];

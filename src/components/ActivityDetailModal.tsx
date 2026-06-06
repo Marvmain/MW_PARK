@@ -11,6 +11,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Activity } from '../types';
+import { formatActivityPriceSummary } from '../activityPricing';
 
 interface ActivityDetailModalProps {
   activity: Activity;
@@ -109,14 +110,7 @@ export default function ActivityDetailModal({
                   {activity.duration}
                 </span>
               </div>
-              
-              <div className={`border p-2.5 ${difficultyColors[activity.difficulty]}`}>
-                <span className="text-[9px] uppercase tracking-wider block font-semibold opacity-80">Difficulty</span>
-                <span className="text-xs font-bold text-inherit mt-0.5 flex items-center gap-1">
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  {activity.difficulty}
-                </span>
-              </div>
+             
 
               <div className="border border-[#1B3022]/10 bg-white p-2.5">
                 <span className="text-[9px] uppercase tracking-wider text-gray-400 block font-semibold">Age Limit</span>
@@ -141,7 +135,7 @@ export default function ActivityDetailModal({
               <div className="space-y-3">
                 <div className="flex items-center gap-1.5 border-b border-[#1B3022]/10 pb-1.5">
                   <Award className="h-4 w-4 text-[#A67C52]" />
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#1B3022]">Adventure Highlights</span>
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#1B3022]">WHAT'S INCLUDED</span>
                 </div>
                 <ul className="space-y-2 text-xs text-gray-600 font-light">
                   {activity.highlights.map((h, i) => (
@@ -190,17 +184,10 @@ export default function ActivityDetailModal({
             {/* Under-The-Hood Pricing Matrix & Booking CTA */}
             <div className="border-t border-[#1B3022]/10 pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="space-y-1">
-                <span className="text-[9px] uppercase tracking-[0.2em] text-[#A67C52] font-bold block">Rate Matrix</span>
-                <div className="flex items-baseline gap-4 font-mono">
-                  <div>
-                    <span className="text-xs text-slate-400 font-sans block">Adult Rate</span>
-                    <span className="text-lg font-bold text-[#1B3022]">₱{activity.adultRate.toLocaleString()} <span className="text-[10px] font-sans font-light text-slate-500">/ pax</span></span>
-                  </div>
-                  <div className="border-l border-slate-200 pl-4">
-                    <span className="text-xs text-slate-400 font-sans block">Child Rate</span>
-                    <span className="text-lg font-bold text-emerald-800">₱{activity.childRate.toLocaleString()} <span className="text-[10px] font-sans font-light text-slate-500">/ pax</span></span>
-                  </div>
-                </div>
+                <span className="text-[9px] uppercase tracking-[0.2em] text-[#A67C52] font-bold block">Rate</span>
+                <p className="text-lg font-bold font-mono text-[#1B3022]">
+                  {formatActivityPriceSummary(activity)}
+                </p>
               </div>
 
               {onSelectForBooking && (

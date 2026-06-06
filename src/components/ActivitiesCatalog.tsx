@@ -9,6 +9,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Activity } from '../types';
+import { formatActivityPriceShort } from '../activityPricing';
 import { ACTIVITIES_DATA } from '../activitiesData';
 
 interface ActivitiesCatalogProps {
@@ -119,7 +120,7 @@ export default function ActivitiesCatalog({
                   </span>
                   {act.disabled && (
                     <span className="inline-block px-2 py-0.5 text-[8px] font-black uppercase tracking-widest bg-red-600 text-white rounded shadow-sm">
-                      ⚠️ CLose (Weather)
+                      ⚠️ CLosed
                     </span>
                   )}
                 </div>
@@ -133,7 +134,7 @@ export default function ActivitiesCatalog({
                       {act.duration}
                     </span>
                     <span className="text-[10px] font-medium text-[#A67C52] tracking-tight">
-                      ₱{act.adultRate} / Adult
+                      {formatActivityPriceShort(act)}
                     </span>
                   </div>
                   
@@ -160,7 +161,7 @@ export default function ActivitiesCatalog({
                   {onInstantBook && (
                     act.disabled ? (
                       <span className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-700 text-[9px] font-extrabold uppercase tracking-wide rounded">
-                        ⚠️ CLOSED (WEATHER)
+                        ⚠️ CLOSED
                       </span>
                     ) : (
                       <button

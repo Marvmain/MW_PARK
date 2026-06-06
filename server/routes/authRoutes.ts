@@ -15,4 +15,9 @@ authRouter.get('/me', AuthController.getMe);
 // Session destruction endpoint
 authRouter.post('/logout', AuthController.logout);
 
+// Admin authentication
+authRouter.post('/admin/login', AuthController.adminLogin);
+authRouter.get('/admin/me', AuthController.adminMe);
+authRouter.post('/admin/logout', AuthController.adminLogout);
+
 export default authRouter;

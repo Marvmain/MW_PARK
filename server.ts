@@ -1,3 +1,6 @@
+// With:
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env' });
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
@@ -11,9 +14,17 @@ async function bootstrap() {
   const PORT = 3000;
   const nodeProcess = (globalThis as any).process || { cwd: () => '', env: {} as Record<string, string | undefined> };
 
-  // Middleware to parse incoming request payloads securely
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Middleware to parse incoming request payloads securely (base64 proof images need >100kb default)
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+  app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err && typeof err === 'object' && 'type' in err && (err as { type?: string }).type === 'entity.too.large') {
+      res.status(413).json({ error: 'Image file is too large. Please upload an image under 10 MB.' });
+      return;
+    }
+    next(err);
+  });
 
   // API Router bindings
   app.use('/api/auth', authRouter);

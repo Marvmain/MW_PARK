@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { supabase } from '../../src/lib/supabaseClient';
 import { DB } from '../data/manager';
 import { getCustomerFromToken } from '../lib/auth';
+import { authenticateAdmin, signAdminToken, verifyAdminToken } from '../lib/adminAuth';
 import { Customer } from '../../src/types';
 
 export const AuthController = {
@@ -238,6 +239,71 @@ export const AuthController = {
       success: true,
       customer
     });
+  },
+
+  /**
+   * Authenticate an admin or staff operator
+   */
+  async adminLogin(req: Request, res: Response): Promise<void> {
+    const { username, password } = req.body;
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
+
+    if (!username || !password) {
+      res.status(400).json({ error: 'Username and password are required.' });
+      return;
+    }
+
+    const session = authenticateAdmin(username, password);
+    if (!session) {
+      await DB.logAdminAction(username, 'Failed login attempt', ip, false);
+      res.status(401).json({ error: 'Invalid admin credentials.' });
+      return;
+    }
+
+    const token = signAdminToken(session);
+    await DB.logAdminAction(session.username, `Login (${session.role})`, ip, true);
+
+    res.status(200).json({
+      success: true,
+      message: `Welcome, ${session.username}.`,
+      token,
+      admin: session,
+    });
+  },
+
+  /**
+   * Validate admin session token
+   */
+  async adminMe(req: Request, res: Response): Promise<void> {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace('Bearer ', '').trim();
+    if (!token) {
+      res.status(401).json({ error: 'Admin session expired or invalid.' });
+      return;
+    }
+
+    const admin = verifyAdminToken(token);
+    if (!admin) {
+      res.status(401).json({ error: 'Admin session expired or invalid.' });
+      return;
+    }
+
+    res.status(200).json({ success: true, admin });
+  },
+
+  /**
+   * Terminate admin session
+   */
+  async adminLogout(req: Request, res: Response): Promise<void> {
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
+    const token = req.headers.authorization?.replace('Bearer ', '').trim();
+    const admin = token ? verifyAdminToken(token) : null;
+
+    if (admin) {
+      await DB.logAdminAction(admin.username, 'Logout', ip, true);
+    }
+
+    res.status(200).json({ success: true, message: 'Admin session closed.' });
   },
 
   /**

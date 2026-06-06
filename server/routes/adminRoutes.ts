@@ -1,31 +1,24 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/adminController';
+import { requireAdmin, requireAdminRole } from '../lib/middleware';
 
 const adminRouter = Router();
 
-// Retrieve all coupled bookings and client details
+// Public: customers need the GCash QR to pay
+adminRouter.get('/gcash-qr', AdminController.getGcashQr);
+
+adminRouter.use(requireAdmin);
+
+// Bookings — super admin and staff
 adminRouter.get('/bookings', AdminController.getAllBookings);
-
-// Modify booking payment status
 adminRouter.put('/bookings/:id', AdminController.updateBookingStatus);
-
-// Permanently expunge single booking record
 adminRouter.delete('/bookings/:id', AdminController.deleteBooking);
 
-// Pull corporate security logs audit tracker
-adminRouter.get('/logs', AdminController.getSecurityLogs);
-
-// Seed premium analytics datasets
-adminRouter.post('/seed', AdminController.seedMockBookings);
-
-// Get all uploaded proof logs
-adminRouter.get('/payments', AdminController.getAllPayments);
-
-// Action to approve or reject a proof
-adminRouter.post('/payments/:paymentId/verify', AdminController.verifyPayment);
-
-// Modify active GCash QR reference
-adminRouter.post('/gcash-qr', AdminController.uploadGcashQr);
-adminRouter.get('/gcash-qr', AdminController.getGcashQr);
+// Super-admin only
+adminRouter.get('/logs', requireAdminRole('super'), AdminController.getSecurityLogs);
+adminRouter.post('/seed', requireAdminRole('super'), AdminController.seedMockBookings);
+adminRouter.get('/payments', requireAdminRole('super'), AdminController.getAllPayments);
+adminRouter.post('/payments/:paymentId/verify', requireAdminRole('super'), AdminController.verifyPayment);
+adminRouter.post('/gcash-qr', requireAdminRole('super'), AdminController.uploadGcashQr);
 
 export default adminRouter;

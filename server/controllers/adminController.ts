@@ -44,7 +44,7 @@ export const AdminController = {
       if (!updated) { res.status(404).json({ error: 'Booking not found.' }); return; }
 
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
-      await DB.logSecurity('ADMIN_CON', `Updated booking ${id} → ${paymentStatus}`, ip, true);
+      await DB.logAdminAction(req.admin?.username || 'unknown', `Updated booking ${id} → ${paymentStatus}`, ip, true);
 
       res.json({ success: true, message: `Booking #${id} updated to ${paymentStatus}.`, booking: updated });
     } catch (e: any) {
@@ -62,7 +62,7 @@ export const AdminController = {
       if (!ok) { res.status(404).json({ error: 'Booking not found.' }); return; }
 
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
-      await DB.logSecurity('ADMIN_CON', `Deleted booking ${id}`, ip, true);
+      await DB.logAdminAction(req.admin?.username || 'unknown', `Deleted booking ${id}`, ip, true);
 
       res.json({ success: true, message: `Booking #${id} permanently deleted.` });
     } catch (e: any) {
@@ -88,46 +88,46 @@ export const AdminController = {
       const seeds: Booking[] = [
         {
           id: 'MW-ZAP-5142', customerId: 'seed_pilar',
-          activityName: 'Dumagat River Trekking', cottageName: 'Riverfront Canopy Cabana',
+          activityName: 'Kawa Spa', cottageName: 'Riverfront Canopy Cabana',
           bookingDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-          scheduleTime: '08:00 AM', numberOfAdults: 4, numberOfChildren: 2,
-          totalAmount: 3250, paymentStatus: 'Paid', paymentMethod: 'GCash',
+          scheduleTime: '08:00 AM', numberOfAdults: 2, numberOfChildren: 1,
+          totalAmount: 2200, paymentStatus: 'Paid', paymentMethod: 'GCash',
           qrCodeToken: crypto.randomBytes(16).toString('hex'),
           createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
         },
         {
           id: 'MW-VIB-8812', customerId: 'seed_marjun',
-          activityName: 'Kayaking & Tubing', cottageName: 'Pandan Bamboo Shelter',
+          activityName: 'Kayak', cottageName: 'Pandan Bamboo Shelter',
           bookingDate: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
-          scheduleTime: '10:30 AM', numberOfAdults: 5, numberOfChildren: 0,
-          totalAmount: 3300, paymentStatus: 'Paid', paymentMethod: 'Maya',
+          scheduleTime: '10:30 AM', numberOfAdults: 3, numberOfChildren: 1,
+          totalAmount: 1950, paymentStatus: 'Paid', paymentMethod: 'Maya',
           qrCodeToken: crypto.randomBytes(16).toString('hex'),
           createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
         },
         {
           id: 'MW-FLW-2091', customerId: 'seed_sophia',
-          activityName: 'Waterpark Day Pass', cottageName: 'Dumagat Stilt Lodge',
+          activityName: 'Fish Spa', cottageName: 'Dumagat Stilt Lodge',
           bookingDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
-          scheduleTime: '01:30 PM', numberOfAdults: 8, numberOfChildren: 4,
-          totalAmount: 5400, paymentStatus: 'Pending',
+          scheduleTime: '01:30 PM', numberOfAdults: 4, numberOfChildren: 2,
+          totalAmount: 3700, paymentStatus: 'Pending',
           qrCodeToken: crypto.randomBytes(16).toString('hex'),
           createdAt: new Date(Date.now() - 86400000).toISOString(),
         },
         {
           id: 'MW-EXT-9311', customerId: 'seed_pilar',
-          activityName: 'Extreme Bamboo Rafting', cottageName: 'Forest Canopy Treehouse',
+          activityName: 'Tub Rent', cottageName: 'Forest Canopy Treehouse',
           bookingDate: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-          scheduleTime: '04:00 PM', numberOfAdults: 3, numberOfChildren: 0,
-          totalAmount: 3800, paymentStatus: 'Paid', paymentMethod: 'GCash',
+          scheduleTime: '04:00 PM', numberOfAdults: 4, numberOfChildren: 0,
+          totalAmount: 2200, paymentStatus: 'Paid', paymentMethod: 'GCash',
           qrCodeToken: crypto.randomBytes(16).toString('hex'),
           createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
         },
         {
           id: 'MW-CAN-1204', customerId: 'seed_marjun',
-          activityName: 'Dumagat River Trekking',
+          activityName: 'Spider Web',
           bookingDate: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0],
           scheduleTime: '10:30 AM', numberOfAdults: 2, numberOfChildren: 1,
-          totalAmount: 875, paymentStatus: 'Cancelled',
+          totalAmount: 0, paymentStatus: 'Cancelled',
           qrCodeToken: crypto.randomBytes(16).toString('hex'),
           createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
         },
@@ -137,7 +137,7 @@ export const AdminController = {
       await DB.saveBookings(toInsert);
 
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
-      await DB.logSecurity('ADMIN_CON', 'Seeded mock bookings', ip, true);
+      await DB.logAdminAction(req.admin?.username || 'unknown', 'Seeded mock bookings', ip, true);
 
       res.json({ success: true, message: `Seeded ${toInsert.length} new sample bookings!` });
     } catch (e: any) {
@@ -216,11 +216,11 @@ export const AdminController = {
         };
         await DB.insertReceipt(receipt);
 
-        await DB.logSecurity('ADMIN_CON', `Approved payment ${paymentId} → Receipt ${receiptId}`, ip, true);
+        await DB.logAdminAction(req.admin?.username || 'unknown', `Approved payment ${paymentId} → Receipt ${receiptId}`, ip, true);
         res.json({ success: true, message: `Payment approved! Receipt: ${receiptId}.` });
       } else {
         await DB.updateBookingFields(proof.bookingId, { paymentStatus: 'Rejected', bookingStatus: 'Rejected' });
-        await DB.logSecurity('ADMIN_CON', `Rejected payment ${paymentId}. Remarks: ${adminRemarks || 'None'}`, ip, true);
+        await DB.logAdminAction(req.admin?.username || 'unknown', `Rejected payment ${paymentId}. Remarks: ${adminRemarks || 'None'}`, ip, true);
         res.json({ success: true, message: `Payment proof rejected.` });
       }
     } catch (e: any) {
@@ -241,7 +241,7 @@ export const AdminController = {
       fs.writeFileSync(filePath, buffer);
 
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
-      await DB.logSecurity('ADMIN_CON', 'Updated GCash QR code', ip, true);
+      await DB.logAdminAction(req.admin?.username || 'unknown', 'Updated GCash QR code', ip, true);
 
       res.json({ success: true, message: 'GCash QR updated!', url: '/uploads/admin_gcash_qr.png' });
     } catch (e: any) {

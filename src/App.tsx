@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Anchor, 
-  ShieldCheck, 
   Calendar, 
   Users, 
   CreditCard, 
@@ -19,24 +18,22 @@ import {
   FileText,
   Upload,
   Clock,
-  Printer
+  Printer,
+  ZoomIn,
+  X
 } from 'lucide-react';
-import { Customer, Booking, Activity, Cottage } from './types';
+import { Customer, Booking, Activity, Cottage, ActivityName } from './types';
 import ActivitiesCatalog from './components/ActivitiesCatalog';
 import ActivityDetailModal from './components/ActivityDetailModal';
-import { ACTIVITIES_DATA } from './activitiesData';
 import { COTTAGES_DATA } from './cottagesData';
+import { loadActivitiesFromStorage, formatActivityPriceSummary, getPrimaryGuestLabel, getSecondaryGuestLabel } from './activityPricing';
 import CottagesCatalog from './components/CottagesCatalog';
 import CottageDetailModal from './components/CottageDetailModal';
-import AdminWorkstation from './components/AdminWorkstation';
 import { Home, Leaf } from 'lucide-react';
 
 export default function App() {
   // Dynamic Activities and Cottages Catalog States
-  const [activitiesList, setActivitiesList] = useState<Activity[]>(() => {
-    const saved = localStorage.getItem('mw_activities_data');
-    return saved ? JSON.parse(saved) : ACTIVITIES_DATA;
-  });
+  const [activitiesList, setActivitiesList] = useState<Activity[]>(loadActivitiesFromStorage);
 
   const [cottagesList, setCottagesList] = useState<Cottage[]>(() => {
     const saved = localStorage.getItem('mw_cottages_data');
@@ -58,8 +55,6 @@ export default function App() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('mw_session_token'));
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [adminViewActive, setAdminViewActive] = useState(false);
-
   // Active activity and cottage detail modal selection
   const [selectedCatalogActivity, setSelectedCatalogActivity] = useState<Activity | null>(null);
   const [selectedCatalogCottage, setSelectedCatalogCottage] = useState<Cottage | null>(null);
@@ -91,7 +86,7 @@ export default function App() {
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   
   // Dynamic Booking Form States
-  const [selectedActivity, setSelectedActivity] = useState<'Dumagat River Trekking' | 'Kayaking & Tubing' | 'Waterpark Day Pass' | 'Extreme Bamboo Rafting'>('Dumagat River Trekking');
+  const [selectedActivity, setSelectedActivity] = useState<ActivityName>('Kawa Spa');
   const [selectedCottage, setSelectedCottage] = useState<'Riverfront Canopy Cabana' | 'Dumagat Stilt Lodge' | 'Forest Canopy Treehouse' | 'Pandan Bamboo Shelter' | 'None'>('None');
   const [bookingDate, setBookingDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState<'08:00 AM' | '10:30 AM' | '01:30 PM' | '04:00 PM'>('08:00 AM');
@@ -105,6 +100,7 @@ export default function App() {
   
   // GCash Integration user-side states
   const [adminQRPref, setAdminQRPref] = useState<string | null>(null);
+  const [qrImageExpanded, setQrImageExpanded] = useState(false);
   const [viewingReceipt, setViewingReceipt] = useState<any | null>(null);
   const [submittingProofForBookingId, setSubmittingProofForBookingId] = useState<string | null>(null);
 
@@ -379,12 +375,12 @@ export default function App() {
             originalFileName: file.name
           })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
           showMsg(data.message || 'Payment proof submitted for administrative verification!', 'success');
           fetchBookings(token);
         } else {
-          showMsg(data.error || 'Failed to submit payment proof.', 'error');
+          showMsg(data.error || `Failed to submit payment proof (${res.status}).`, 'error');
         }
       } catch (err) {
         showMsg('Network error transmitting eco-permit payment proof.', 'error');
@@ -456,27 +452,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Operator Desk Access Switch */}
-            <button
-              id="admin-workstation-toggle"
-              onClick={() => {
-                setAdminViewActive(!adminViewActive);
-                if (!adminViewActive) {
-                  showMsg('Switched to Government System Operator Workstation. Loading live river data pools...', 'success');
-                } else {
-                  showMsg('Returned to visitor reservation interface.', 'success');
-                }
-              }}
-              className={`rounded border px-3 md:px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 focus:outline-none cursor-pointer ${
-                adminViewActive 
-                  ? 'bg-[#A67C52] text-white border-[#A67C52] hover:bg-[#916b43]' 
-                  : 'border-[#1B3022]/15 text-[#1B3022] hover:bg-[#1B3022]/5 bg-white'
-              }`}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span>{adminViewActive ? 'Exit Admin Workstation' : 'Admin Workstation'}</span>
-            </button>
-
             {customer && (
               <div className="flex items-center space-x-3">
                 <span className="hidden text-right md:block">
@@ -498,24 +473,21 @@ export default function App() {
 
       {/* Main Container Content */}
       <main className="mx-auto max-w-7xl">
-        {adminViewActive ? (
-          <AdminWorkstation 
-            onClose={() => setAdminViewActive(false)} 
-            showMsg={showMsg} 
-            token={token} 
-            activities={activitiesList}
-            onUpdateActivities={handleUpdateActivities}
-            cottages={cottagesList}
-            onUpdateCottages={handleUpdateCottages}
-          />
-        ) : !customer ? (
+        {!customer ? (
           /* ======================================================== */
           /* AUTHENTICATION VIEW: Elegant Editorial Split Layout       */
           /* ======================================================== */
           <div className="flex min-h-[calc(100vh-76px)] flex-col lg:flex-row">
             
             {/* Left side: Editorial Brand Magazine showcase */}
-            <aside className="relative flex flex-col justify-between bg-[#1B3022] p-8 text-[#FAF9F6] lg:w-7/12 lg:p-16">
+            <aside className="relative flex flex-col justify-between bg-[#1B3022] p-8 text-[#FAF9F6] lg:w-7/12 lg:p-16 overflow-hidden">
+              {/* Background Image with Low Opacity */}
+              <div
+                className="absolute inset-0 bg-cover bg-center opacity-7"
+                style={{
+                  backgroundImage: "url('https://scontent.fcgy2-1.fna.fbcdn.net/v/t39.30808-6/505836933_1038041441801827_2259826248032804033_n.jpg?stp=cp6_dst-jpg_tt6&cstp=mx744x992&ctp=s744x992&_nc_cat=100&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeGl6_gFAaXziOaLDU0rDQoTG7P6wliLm8obs_rCWIubyoG6ZLqh4Ai3ibsYg8yt0is2IOma-1BG2k2c4ETT5YcN&_nc_ohc=IR3hs-0D0pIQ7kNvwFUStgE&_nc_oc=AdoYSSAoNG3YyJJTPyk6iCAeO4nF9sgjndG2HMVrWPCdM91R8s5gINUEWzBHYFG9O8vH5l-RX9frzrHXfEQW7SG4&_nc_zt=23&_nc_ht=scontent.fcgy2-1.fna&_nc_gid=Rulr9rFJ3RnPwHwhXbe1kw&_nc_ss=7b2a8&oh=00_Af-Mu8ZloTT53IKM1AanQkDs2YZg0BPPqOVaAOQEafp_Vg&oe=6A2A026B')",
+                }}
+              />
               <div className="relative z-10">
                 <span className="text-xs tracking-[0.3em] uppercase opacity-70">Established 2026</span>
                 
@@ -525,8 +497,7 @@ export default function App() {
                 </h2>
 
                 <p className="mt-8 text-base font-light leading-relaxed opacity-80 max-w-lg">
-                  A high-end capstone platform produced by the BS Information Systems cohort of the University of Antique class of 2026. 
-                  Saddled along the gorgeous crystalline flows of Pandan, Antique, we combine rustic Filipino river activities with high-security software systems.
+                Experience the beauty and adventure of Pandan, Antique through Dumagat River. Nestled along the crystal-clear waters and breathtaking natural scenery, we offer unforgettable river activities, exciting outdoor experiences, and a relaxing escape into nature. Whether you're looking for adventure, family bonding, or a peaceful getaway, Dumagat River provides a seamless and convenient booking experience to help you create lasting memories.
                 </p>
 
                 {/* Aesthetic list of park adventures - Clickable brochures */}
@@ -534,7 +505,7 @@ export default function App() {
                   <span className="text-[10px] tracking-widest uppercase text-[#A67C52] font-semibold block mb-2">
                     ✓ Brochure Catalog (Click to browse specs)
                   </span>
-                  {ACTIVITIES_DATA.map((act, index) => (
+                  {activitiesList.map((act, index) => (
                     <button 
                       key={act.id}
                       onClick={() => setSelectedCatalogActivity(act)}
@@ -559,14 +530,6 @@ export default function App() {
                 <div className="flex flex-col">
                   <span className="text-[10px] uppercase tracking-widest opacity-50">Location</span>
                   <span className="text-xs font-semibold">Pandan, Antique, PH</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-widest opacity-50">Academic Focus</span>
-                  <span className="text-xs font-semibold">UA BSIS Capstone 2026</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-widest opacity-50">Authorized Agent</span>
-                  <span className="text-xs font-semibold text-[#A67C52]">PayMongo Certified Gateway</span>
                 </div>
               </div>
 
@@ -609,7 +572,7 @@ export default function App() {
                           : 'text-gray-400 hover:text-[#1B3022]'
                       }`}
                     >
-                      New Customer
+                      New user
                     </button>
                   </div>
                 </div>
@@ -658,7 +621,7 @@ export default function App() {
                         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                       ) : (
                         <>
-                          <span>Authenticate Profile</span>
+                          <span>Sign in</span>
                           <ArrowRight className="h-4 w-4" />
                         </>
                       )}
@@ -810,14 +773,6 @@ export default function App() {
                   </form>
                 )}
 
-                <div className="mt-12 pt-6 border-t border-[#1B3022]/10 flex items-center justify-between text-[11px] text-gray-400">
-                  <div>
-                    <span className="block uppercase text-[9px] tracking-tight text-gray-400">Security Baseline</span>
-                    <span className="font-semibold text-gray-600">SHA256 • SSL Sandbox</span>
-                  </div>
-                  <span className="text-xs uppercase text-[#A67C52] font-semibold">UA-BSIS-22</span>
-                </div>
-
               </div>
             </main>
           </div>
@@ -832,10 +787,10 @@ export default function App() {
               <div className="z-10 space-y-2">
                 <span className="text-[10px] uppercase tracking-[0.3em] text-[#E8E5DA] opacity-80">Online Customer Interface</span>
                 <h3 className="font-serif text-3xl md:text-4xl tracking-tight">
-                  Salamat sa pagpalista, {customer.fullName}!
+                  Hello, {customer.fullName}!
                 </h3>
                 <p className="text-xs font-light text-[#FAF9F6] opacity-75 max-w-2xl">
-                  Your details are secured in our system nodes. Below you can book new active Dumagat River itineraries and process immediate GCash or Maya transactions via the simulated PayMongo sandbox.
+                Explore and reserve your preferred Dumagat River experiences below. Enjoy a seamless and secure booking process designed for your convenience.
                 </p>
               </div>
               <div className="z-10 shrink-0 flex items-center gap-3">
@@ -867,7 +822,7 @@ export default function App() {
                 }`}
               >
                 <Compass className="h-4 w-4" />
-                <span>Adventures Directory</span>
+                <span>Activities Catalog</span>
               </button>
 
               <button 
@@ -879,7 +834,7 @@ export default function App() {
                 }`}
               >
                 <Home className="h-4 w-4" />
-                <span>Riverside Cottages</span>
+                <span>Cottages Catalog</span>
               </button>
 
               <button 
@@ -1043,13 +998,14 @@ export default function App() {
                       <label className="text-[10px] uppercase font-semibold text-gray-500 block">Select Activity</label>
                       <select 
                         value={selectedActivity}
-                        onChange={(e: any) => setSelectedActivity(e.target.value)}
+                        onChange={(e) => setSelectedActivity(e.target.value as ActivityName)}
                         className="w-full rounded border border-[#1B3022]/20 bg-transparent px-3 py-2 text-xs focus:ring-1 focus:ring-[#A67C52] focus:outline-none focus:border-[#A67C52]"
                       >
-                        <option value="Dumagat River Trekking">Dumagat River Trekking (₱350 / Adult)</option>
-                        <option value="Kayaking & Tubing">Kayaking & Tubing (₱500 / Adult)</option>
-                        <option value="Waterpark Day Pass">Waterpark Day Pass (₱250 / Adult)</option>
-                        <option value="Extreme Bamboo Rafting">Extreme Bamboo Rafting (₱600 / Adult)</option>
+                        {activitiesList.filter((act) => !act.disabled).map((act) => (
+                          <option key={act.id} value={act.name}>
+                            {act.name} ({formatActivityPriceSummary(act)})
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -1115,7 +1071,7 @@ export default function App() {
                     {/* Guest count controls */}
                     <div className="grid grid-cols-2 gap-4 pt-1">
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-semibold text-gray-500 block">Adult Guests (18+)</label>
+                        <label className="text-[10px] uppercase font-semibold text-gray-500 block">{getPrimaryGuestLabel(activeActivityObject)}</label>
                         <div className="flex items-center space-x-2">
                           <button 
                             type="button"
@@ -1137,7 +1093,7 @@ export default function App() {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-semibold text-gray-500 block">Children (Ages 5-17)</label>
+                        <label className="text-[10px] uppercase font-semibold text-gray-500 block">{getSecondaryGuestLabel(activeActivityObject)}</label>
                         <div className="flex items-center space-x-2">
                           <button 
                             type="button"
@@ -1164,13 +1120,13 @@ export default function App() {
                       <span className="text-[9px] uppercase tracking-wide text-gray-400 font-bold block">Cost Breakdown (Philippine Pesos)</span>
                       
                       <div className="flex justify-between text-xs text-gray-600">
-                        <span>Adult Package x{numberOfAdults}</span>
+                        <span>{getPrimaryGuestLabel(activeActivityObject)} x{numberOfAdults}</span>
                         <span>₱{numberOfAdults * rates.adultRate}</span>
                       </div>
                       
                       {numberOfChildren > 0 && (
                         <div className="flex justify-between text-xs text-gray-600">
-                          <span>Children Discount x{numberOfChildren}</span>
+                          <span>{getSecondaryGuestLabel(activeActivityObject)} x{numberOfChildren}</span>
                           <span>₱{numberOfChildren * rates.childRate}</span>
                         </div>
                       )}
@@ -1374,14 +1330,22 @@ export default function App() {
                                      <div className="flex flex-col items-center justify-center p-2 bg-white border rounded">
                                        <span className="text-[8px] text-gray-400 font-extrabold uppercase tracking-widest mb-1 block">1. Scan QR to pay</span>
                                        {adminQRPref ? (
-                                         <div className="relative group w-20 h-20 bg-white p-1 shadow-xs border rounded">
+                                         <button
+                                           type="button"
+                                           onClick={() => setQrImageExpanded(true)}
+                                           className="relative group w-20 h-20 bg-white p-1 shadow-xs border rounded cursor-zoom-in transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#A67C52]/50"
+                                           aria-label="Enlarge GCash QR code"
+                                         >
                                            <img
                                              src={adminQRPref}
                                              alt="Admin GCash Merchant Config"
                                              referrerPolicy="no-referrer"
                                              className="w-full h-full object-contain"
                                            />
-                                         </div>
+                                           <span className="absolute inset-0 flex items-center justify-center rounded bg-[#1B3022]/0 group-hover:bg-[#1B3022]/40 transition-colors">
+                                             <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+                                           </span>
+                                         </button>
                                        ) : (
                                          // Default Mock QR representation
                                          <div className="p-2 bg-blue-50 rounded text-center border border-blue-100 flex flex-col items-center justify-center w-20 h-20">
@@ -1390,6 +1354,9 @@ export default function App() {
                                          </div>
                                        )}
                                        <span className="text-[8px] text-gray-400 mt-1 uppercase font-medium">MW Merchant Code</span>
+                                       {adminQRPref && (
+                                         <span className="text-[7px] text-[#A67C52] mt-0.5">Tap to enlarge</span>
+                                       )}
                                      </div>
 
                                      {/* 2. File proof uploader */}
@@ -1464,15 +1431,10 @@ export default function App() {
       {/* Clean Footer */}
       <footer className="border-t border-[#1B3022]/10 bg-white/50 text-[#1b3022]/60 px-6 py-10 mt-16 text-center">
         <div className="mx-auto max-w-7xl space-y-3">
-          <p className="text-xs font-medium uppercase tracking-[0.2em]">MW Adventure Park Online System</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em]">MW adventure park booking system</p>
           <p className="text-[11px] font-light max-w-xl mx-auto leading-relaxed">
-            A capstone research submission for the University of Antique, BS Information Systems Class of 2026. 
-            Dumagat River adventure activities, reservations, local waivers, and secure simulated PayMongo e-ticket issuance. All rights reserved.
+            Discover the charm of the river, connect with nature, and enjoy authentic Filipino hospitality—all in one destination. 🌿🏞️✨
           </p>
-          <div className="pt-2 flex justify-center items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[10px] font-medium tracking-wider uppercase text-emerald-700">System Core Node Online & Verified</span>
-          </div>
         </div>
       </footer>
 
@@ -1517,6 +1479,40 @@ export default function App() {
             }
           }}
         />
+      )}
+
+      {/* GCash QR fullscreen lightbox */}
+      {qrImageExpanded && adminQRPref && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B3022]/80 p-4 backdrop-blur-sm"
+          onClick={() => setQrImageExpanded(false)}
+        >
+          <div
+            className="relative max-h-[90vh] max-w-lg w-full animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setQrImageExpanded(false)}
+              className="absolute -top-3 -right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1B3022] shadow-lg hover:bg-stone-100"
+              aria-label="Close enlarged QR code"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="overflow-hidden rounded-lg border-2 border-white bg-white p-3 shadow-2xl">
+              <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                Scan to pay · MW Merchant Code
+              </p>
+              <img
+                src={adminQRPref}
+                alt="GCash QR code enlarged"
+                referrerPolicy="no-referrer"
+                className="mx-auto max-h-[75vh] w-full object-contain"
+              />
+            </div>
+            <p className="mt-3 text-center text-xs text-white/80">Tap outside or press ✕ to close</p>
+          </div>
+        </div>
       )}
 
       {/* ---------------------------------------------------------------------- */}

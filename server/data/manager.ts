@@ -5,7 +5,46 @@ import { supabase, supabaseAdmin } from '../../src/lib/supabaseClient';
 
 export const UPLOADS_DIR = path.join(process.cwd(), 'data', 'uploads');
 
+const PAYMENT_PROOFS_BUCKET = process.env.SUPABASE_PAYMENT_PROOFS_BUCKET || 'payment-proofs';
 const HASH_SECRET = process.env.HASH_SECRET || 'mw-adventure-park-secret-salt-2026';
+
+let paymentProofsBucketReady = false;
+
+async function ensurePaymentProofsBucket(): Promise<void> {
+  if (paymentProofsBucketReady) return;
+
+  const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
+  if (listError) throw new Error(`Failed to list storage buckets: ${listError.message}`);
+
+  if (!buckets?.some((bucket) => bucket.name === PAYMENT_PROOFS_BUCKET)) {
+    const { error: createError } = await supabaseAdmin.storage.createBucket(PAYMENT_PROOFS_BUCKET, {
+      public: true,
+      fileSizeLimit: 5 * 1024 * 1024,
+    });
+    if (createError && !createError.message.toLowerCase().includes('already exists')) {
+      throw new Error(`Failed to create storage bucket: ${createError.message}`);
+    }
+  }
+
+  paymentProofsBucketReady = true;
+}
+
+export async function uploadPaymentProofToStorage(
+  buffer: Buffer,
+  storagePath: string,
+  contentType: string
+): Promise<string> {
+  await ensurePaymentProofsBucket();
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(PAYMENT_PROOFS_BUCKET)
+    .upload(storagePath, buffer, { contentType, upsert: true });
+
+  if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
+
+  const { data } = supabaseAdmin.storage.from(PAYMENT_PROOFS_BUCKET).getPublicUrl(storagePath);
+  return data.publicUrl;
+}
 
 export interface UserRecord extends Customer {
   passwordHash: string;
@@ -27,7 +66,7 @@ function mapCustomerRow(row: Record<string, unknown>, email = ''): Customer {
 
 export const DB = {
   async isPhoneRegistered(phone: string): Promise<boolean> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('customers')
       .select('id')
       .eq('phone', phone)
@@ -37,7 +76,7 @@ export const DB = {
   },
 
   async getCustomerById(id: string, email = ''): Promise<Customer | null> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('customers')
       .select('*')
       .eq('id', id)
@@ -65,10 +104,10 @@ export const DB = {
     return { error: null };
   },
 
-  // ─── USERS ──────────────────────────────────────────────────────────────────
+  // ─── USERS ───────────────────────────────────────────────────────────────────
 
   async getUsers(): Promise<UserRecord[]> {
-    const { data, error } = await supabase.from('customers').select('*');
+    const { data, error } = await supabaseAdmin.from('customers').select('*');
     if (error) { console.error('getUsers error:', error); return []; }
     return (data || []).map(row => ({ ...mapCustomerRow(row), passwordHash: '' }));
   },
@@ -77,10 +116,10 @@ export const DB = {
     // No-op: users are managed via Supabase Auth + customers table directly
   },
 
-  // ─── BOOKINGS ───────────────────────────────────────────────────────────────
+  // ─── BOOKINGS ────────────────────────────────────────────────────────────────
 
   async getBookings(): Promise<Booking[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('bookings')
       .select('*')
       .order('created_at', { ascending: false });
@@ -106,7 +145,7 @@ export const DB = {
 
   async saveBookings(bookings: Booking[]): Promise<void> {
     for (const b of bookings) {
-      const { error } = await supabase.from('bookings').upsert({
+      const { error } = await supabaseAdmin.from('bookings').upsert({
         id: b.id,
         customer_id: b.customerId,
         activity_name: b.activityName,
@@ -127,7 +166,7 @@ export const DB = {
   },
 
   async upsertBooking(b: Booking): Promise<void> {
-    const { error } = await supabase.from('bookings').upsert({
+    const { error } = await supabaseAdmin.from('bookings').upsert({
       id: b.id,
       customer_id: b.customerId,
       activity_name: b.activityName,
@@ -143,23 +182,23 @@ export const DB = {
       qr_code_token: b.qrCodeToken,
       admin_notes: (b as any).adminNotes || null,
     });
-    if (error) console.error('upsertBooking error:', error);
+    if (error) throw new Error(error.message);
   },
 
   async deleteBookingById(id: string): Promise<boolean> {
-    const { error } = await supabase.from('bookings').delete().eq('id', id);
+    const { error } = await supabaseAdmin.from('bookings').delete().eq('id', id);
     if (error) { console.error('deleteBookingById error:', error); return false; }
     return true;
   },
 
   async updateBookingFields(id: string, fields: Record<string, unknown>): Promise<Booking | null> {
     const dbFields: Record<string, unknown> = {};
-    if (fields.paymentStatus !== undefined)   dbFields.payment_status  = fields.paymentStatus;
-    if (fields.bookingStatus !== undefined)   dbFields.booking_status  = fields.bookingStatus;
-    if (fields.paymentMethod !== undefined)   dbFields.payment_method  = fields.paymentMethod;
-    if (fields.adminNotes    !== undefined)   dbFields.admin_notes     = fields.adminNotes;
+    if (fields.paymentStatus !== undefined) dbFields.payment_status = fields.paymentStatus;
+    if (fields.bookingStatus !== undefined) dbFields.booking_status = fields.bookingStatus;
+    if (fields.paymentMethod !== undefined) dbFields.payment_method = fields.paymentMethod;
+    if (fields.adminNotes    !== undefined) dbFields.admin_notes    = fields.adminNotes;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('bookings')
       .update(dbFields)
       .eq('id', id)
@@ -184,10 +223,10 @@ export const DB = {
     };
   },
 
-  // ─── LOGS ────────────────────────────────────────────────────────────────────
+  // ─── LOGS ─────────────────────────────────────────────────────────────────────
 
   async getLogs(): Promise<SecurityLog[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('security_audit_logs')
       .select('*')
       .order('created_at', { ascending: false })
@@ -208,7 +247,7 @@ export const DB = {
   },
 
   async logSecurity(userId: string | null, action: string, ip: string, success: boolean): Promise<void> {
-    const { error } = await supabase.from('security_audit_logs').insert({
+    const { error } = await supabaseAdmin.from('security_audit_logs').insert({
       user_id: userId || null,
       action_type: action,
       ip_address: ip,
@@ -217,10 +256,14 @@ export const DB = {
     if (error) console.error('logSecurity error:', error);
   },
 
-  // ─── PAYMENTS ────────────────────────────────────────────────────────────────
+  async logAdminAction(adminUsername: string, action: string, ip: string, success: boolean): Promise<void> {
+    await this.logSecurity(null, `[admin:${adminUsername}] ${action}`, ip, success);
+  },
+
+  // ─── PAYMENTS ─────────────────────────────────────────────────────────────────
 
   async getPayments(): Promise<PaymentProof[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('payment_proofs')
       .select('*')
       .order('uploaded_at', { ascending: false });
@@ -239,7 +282,7 @@ export const DB = {
 
   async savePayments(payments: PaymentProof[]): Promise<void> {
     for (const p of payments) {
-      const { error } = await supabase.from('payment_proofs').upsert({
+      const { error } = await supabaseAdmin.from('payment_proofs').upsert({
         id: p.id,
         booking_id: p.bookingId,
         customer_id: p.customerId,
@@ -254,7 +297,7 @@ export const DB = {
   },
 
   async upsertPayment(p: PaymentProof): Promise<void> {
-    const { error } = await supabase.from('payment_proofs').upsert({
+    const { error } = await supabaseAdmin.from('payment_proofs').upsert({
       id: p.id,
       booking_id: p.bookingId,
       customer_id: p.customerId,
@@ -264,21 +307,21 @@ export const DB = {
       status: p.status,
       admin_remarks: p.adminRemarks || null,
     });
-    if (error) console.error('upsertPayment error:', error);
+    if (error) throw new Error(error.message);
   },
 
   async updatePaymentStatus(id: string, status: string, adminRemarks?: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('payment_proofs')
       .update({ status, admin_remarks: adminRemarks || null })
       .eq('id', id);
     if (error) console.error('updatePaymentStatus error:', error);
   },
 
-  // ─── RECEIPTS ────────────────────────────────────────────────────────────────
+  // ─── RECEIPTS ─────────────────────────────────────────────────────────────────
 
   async getReceipts(): Promise<Receipt[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('receipts')
       .select('*')
       .order('issued_at', { ascending: false });
@@ -299,7 +342,7 @@ export const DB = {
 
   async saveReceipts(receipts: Receipt[]): Promise<void> {
     for (const r of receipts) {
-      const { error } = await supabase.from('receipts').upsert({
+      const { error } = await supabaseAdmin.from('receipts').upsert({
         id: r.id,
         payment_id: r.paymentId,
         booking_id: r.bookingId,
@@ -316,7 +359,7 @@ export const DB = {
   },
 
   async insertReceipt(r: Receipt): Promise<void> {
-    const { error } = await supabase.from('receipts').insert({
+    const { error } = await supabaseAdmin.from('receipts').insert({
       id: r.id,
       payment_id: r.paymentId,
       booking_id: r.bookingId,
@@ -331,7 +374,7 @@ export const DB = {
     if (error) console.error('insertReceipt error:', error);
   },
 
-  // ─── MISC ────────────────────────────────────────────────────────────────────
+  // ─── MISC ─────────────────────────────────────────────────────────────────────
 
   hashPassword(password: string): string {
     return crypto.createHmac('sha256', HASH_SECRET).update(password).digest('hex');

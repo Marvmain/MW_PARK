@@ -1,18 +1,15 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
-import { DB } from '../data/manager';
-import { getCustomerFromToken } from '../lib/auth';
+import { DB, uploadPaymentProofToStorage } from '../data/manager';
 import { Booking, PaymentProof } from '../../src/types';
+import { ACTIVITIES_DATA } from '../../src/activitiesData';
 
-// Pricing configuration (Philippine peso Rates)
-const PRICING = {
-  'Dumagat River Trekking': { adultRate: 350, childRate: 175 },
-  'Kayaking & Tubing': { adultRate: 500, childRate: 300 },
-  'Waterpark Day Pass': { adultRate: 250, childRate: 150 },
-  'Extreme Bamboo Rafting': { adultRate: 600, childRate: 400 }
-};
+const PRICING = Object.fromEntries(
+  ACTIVITIES_DATA.map((activity) => [
+    activity.name,
+    { adultRate: activity.adultRate, childRate: activity.childRate },
+  ])
+) as Record<string, { adultRate: number; childRate: number }>;
 
 const COTTAGE_PRICING = {
   'Riverfront Canopy Cabana': 1500,
@@ -24,21 +21,10 @@ const COTTAGE_PRICING = {
 
 export const BookingController = {
   /**
-   * Helper to validate Supabase JWT and get current customer
-   */
-  async getCustomerFromSession(req: Request) {
-    return getCustomerFromToken(req.headers.authorization);
-  },
-
-  /**
    * Fetch bookings belonging to the active customer
    */
   async getMyBookings(req: Request, res: Response): Promise<void> {
-    const customer = await BookingController.getCustomerFromSession(req);
-    if (!customer) {
-      res.status(401).json({ error: 'Unauthorized. Please log in to view your reservations.' });
-      return;
-    }
+    const customer = req.customer!;
 
     try {
       const allBookings = await DB.getBookings();
@@ -53,11 +39,7 @@ export const BookingController = {
    * Create a prospective reservation (Pending status)
    */
   async createBooking(req: Request, res: Response): Promise<void> {
-    const customer = await BookingController.getCustomerFromSession(req);
-    if (!customer) {
-      res.status(401).json({ error: 'Unauthorized. Authentication required.' });
-      return;
-    }
+    const customer = req.customer!;
 
     const { activityName, cottageName, bookingDate, scheduleTime, numberOfAdults, numberOfChildren } = req.body;
 
@@ -118,6 +100,7 @@ export const BookingController = {
       const bookings = await DB.getBookings();
       bookings.push(newBooking);
       await DB.saveBookings(bookings);
+      console.log('Booking saved:', newBooking.id);
 
       res.status(201).json({
         success: true,
@@ -133,11 +116,7 @@ export const BookingController = {
    * Simulate GCash/Maya PayMongo payment gateway connection
    */
   async processPayment(req: Request, res: Response): Promise<void> {
-    const customer = await BookingController.getCustomerFromSession(req);
-    if (!customer) {
-      res.status(401).json({ error: 'Unauthorized.' });
-      return;
-    }
+    const customer = req.customer!;
 
     const { bookingId, paymentMethod } = req.body;
 
@@ -182,11 +161,7 @@ export const BookingController = {
    * Submit payment proof image (base64)
    */
   async submitProof(req: Request, res: Response): Promise<void> {
-    const customer = await BookingController.getCustomerFromSession(req);
-    if (!customer) {
-      res.status(401).json({ error: 'Unauthorized.' });
-      return;
-    }
+    const customer = req.customer!;
 
     const { bookingId, proofImageBase64, originalFileName } = req.body;
 
@@ -215,34 +190,30 @@ export const BookingController = {
       const base64Parts = proofImageBase64.split(';base64,');
       const base64String = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
       const buffer = Buffer.from(base64String, 'base64');
-
-      // Save payment proof to server space disk path
-      const fileName = `proof_${bookingId}_${Date.now()}.${ext}`;
-      const filePath = path.join(process.cwd(), 'data', 'uploads', fileName);
-      fs.writeFileSync(filePath, buffer);
+      const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      const storagePath = `${customer.id}/${bookingId}/proof_${Date.now()}.${ext}`;
+      const proofFileUrl = await uploadPaymentProofToStorage(buffer, storagePath, contentType);
 
       // Create Payment Proof Record
       const paymentId = 'PAY-' + crypto.randomBytes(3).toString('hex').toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
-      const payments = await DB.getPayments();
-      
+
       const newPayment: PaymentProof = {
         id: paymentId,
         bookingId,
         customerId: customer.id,
         amountPaid: bookings[bookingIdx].totalAmount,
-        proofFileName: fileName,
+        proofFileName: proofFileUrl,
         uploadedAt: new Date().toISOString(),
         status: 'Pending'
       };
 
-      payments.push(newPayment);
-      await DB.savePayments(payments);
+      await DB.upsertPayment(newPayment);
 
       // Update Booking Payment and Booking status
       bookings[bookingIdx].paymentStatus = 'Pending Verification';
       bookings[bookingIdx].bookingStatus = 'Pending';
       bookings[bookingIdx].paymentMethod = 'GCash'; // Designated payment route
-      await DB.saveBookings(bookings);
+      await DB.upsertBooking(bookings[bookingIdx]);
 
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
       await DB.logSecurity(customer.id, `Uploaded Payment Proof for booking ${bookingId} (Proof Ref: ${paymentId})`, ip, true);
@@ -263,12 +234,7 @@ export const BookingController = {
    * Fetch approved transaction receipt
    */
   async getReceipt(req: Request, res: Response): Promise<void> {
-    const customer = await BookingController.getCustomerFromSession(req);
-    if (!customer) {
-      res.status(401).json({ error: 'Unauthorized.' });
-      return;
-    }
-
+    const customer = req.customer!;
     const { bookingId } = req.params;
 
     if (!bookingId) {
@@ -277,8 +243,15 @@ export const BookingController = {
     }
 
     try {
+      const bookings = await DB.getBookings();
+      const booking = bookings.find((b) => b.id === bookingId && b.customerId === customer.id);
+      if (!booking) {
+        res.status(404).json({ error: 'Booking not found.' });
+        return;
+      }
+
       const receipts = await DB.getReceipts();
-      const receipt = receipts.find(r => r.bookingId === bookingId);
+      const receipt = receipts.find((r) => r.bookingId === bookingId);
 
       if (!receipt) {
         res.status(404).json({ error: 'Payment receipt has not been generated for this booking yet.' });

@@ -1,26 +1,3 @@
 [
-  {
-    "id": "ef80a4cf-bd7e-46f2-b0dd-dcb9aad99483",
-    "fullName": "Rogelyn Acibar",
-    "email": "rogelynacibar9@gmail.com",
-    "phone": "09973600610",
-    "dob": "2020-01-06",
-    "address": "culasi",
-    "emergencyContactName": "Glorry Minez",
-    "emergencyContactPhone": "09877997121",
-    "createdAt": "2026-06-06T06:32:24.668Z",
-    "passwordHash": "b4a1211df9044ed3080fe7864f5a325b7363e1ccf3f7f0cd0bff0cff5a8eade6"
-  },
-  {
-    "id": "6ada1d20-d883-4d14-99b8-9a33d632b043",
-    "fullName": "Marvin",
-    "email": "sebastianmarvin48@gmail.com",
-    "phone": "09659552562",
-    "dob": "2020-01-06",
-    "address": "Sibalom, Antique",
-    "emergencyContactName": "Rogelyn Acibar",
-    "emergencyContactPhone": "09973600610",
-    "createdAt": "2026-06-06T08:18:46.578Z",
-    "passwordHash": "3dda1f91126b0bd78ff1678e58a203cec8677d9ec010eed574fe5c9306d3926e"
-  }
+  
 ]

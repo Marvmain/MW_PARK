@@ -30,7 +30,17 @@ import {
   ShieldCheck,
   Edit3
 } from 'lucide-react';
-import { Booking, Customer, Cottage, Activity as ActivityType } from '../types';
+import { Booking, Customer, Cottage, Activity as ActivityType, AdminRole } from '../types';
+
+function getProofImageUrl(proofFileName: string): string {
+  if (proofFileName.startsWith('http://') || proofFileName.startsWith('https://')) {
+    return proofFileName;
+  }
+  if (proofFileName.startsWith('/uploads/')) {
+    return proofFileName;
+  }
+  return `/uploads/${proofFileName}`;
+}
 
 interface CoupledBooking extends Booking {
   customer: {
@@ -74,10 +84,19 @@ export default function AdminWorkstation({
   onUpdateCottages
 }: AdminWorkstationProps) {
   // Authentication & Access Control States
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => sessionStorage.getItem('mw_admin_logged') === 'true');
-  const [adminRole, setAdminRole] = useState<'super' | 'staff' | null>(() => sessionStorage.getItem('mw_admin_role') as any);
+  const [adminToken, setAdminToken] = useState<string | null>(() => sessionStorage.getItem('mw_admin_token'));
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+  const [isAdminSigningIn, setIsAdminSigningIn] = useState(false);
+
+  const getAdminHeaders = (withJson = false): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (withJson) headers['Content-Type'] = 'application/json';
+    if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+    return headers;
+  };
 
   // Primary Data lists
   const [bookings, setBookings] = useState<CoupledBooking[]>([]);
@@ -123,15 +142,17 @@ export default function AdminWorkstation({
   
   // Form input defaults
   const [newActForm, setNewActForm] = useState<Partial<ActivityType>>({
-    name: 'Dumagat River Trekking',
+    name: 'Kawa Spa',
     tagline: '',
     description: '',
     longDescription: '',
-    duration: 'Full Day (6 hours)',
-    difficulty: 'Moderate',
-    ageRequirement: 'Min Age: 12+',
+    duration: '1 Hour',
+    difficulty: 'Easy',
+    ageRequirement: 'All ages',
     adultRate: 350,
-    childRate: 175,
+    childRate: 500,
+    primaryRateLabel: 'Small',
+    secondaryRateLabel: 'Big',
     image: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&q=80&w=600',
     highlights: [],
     safetyGuidelines: [],
@@ -154,70 +175,126 @@ export default function AdminWorkstation({
     stiltHeight: '3 meters above bed elevation'
   });
 
-  // Handle Dynamic Login Logic (Secured in Component Space)
-  const handleAdminSignIn = (e: React.FormEvent) => {
+  const handleAdminSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    const sanitisedUser = adminUsername.trim().toLowerCase();
-    const sanitisedPass = adminPassword.trim();
+    setIsAdminSigningIn(true);
 
-    if (sanitisedUser === 'admin' && sanitisedPass === 'AdminPassword55!') {
-      setIsAdminLoggedIn(true);
-      setAdminRole('super');
-      sessionStorage.setItem('mw_admin_logged', 'true');
-      sessionStorage.setItem('mw_admin_role', 'super');
-      showMsg('Super Admin authenticated successfully. Clearing ledger indices...', 'success');
-      setAdminUsername('');
-      setAdminPassword('');
-    } else if (sanitisedUser === 'staff' && sanitisedPass === 'StaffPassword55!') {
-      setIsAdminLoggedIn(true);
-      setAdminRole('staff');
-      sessionStorage.setItem('mw_admin_logged', 'true');
-      sessionStorage.setItem('mw_admin_role', 'staff');
-      showMsg('Staff role unlocked. Accessible tabs: Bookings & Catalogs.', 'success');
-      setAdminUsername('');
-      setAdminPassword('');
-      setActiveSubTab('bookings'); // Staff lands directly on bookings tab
-    } else {
-      showMsg('Access denied. Invalid keys or matching credential tokens.', 'error');
+    try {
+      const res = await fetch('/api/auth/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: adminUsername.trim(),
+          password: adminPassword,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.token && data.admin) {
+        setAdminToken(data.token);
+        setIsAdminLoggedIn(true);
+        setAdminRole(data.admin.role);
+        sessionStorage.setItem('mw_admin_token', data.token);
+        showMsg(
+          data.admin.role === 'super'
+            ? 'Super Admin authenticated successfully.'
+            : 'Staff role unlocked. Accessible tabs: Bookings & Catalogs.',
+          'success'
+        );
+        setAdminUsername('');
+        setAdminPassword('');
+        if (data.admin.role === 'staff') {
+          setActiveSubTab('bookings');
+        }
+      } else {
+        showMsg(data.error || 'Access denied. Invalid credentials.', 'error');
+      }
+    } catch {
+      showMsg('Failed to reach admin authentication service.', 'error');
+    } finally {
+      setIsAdminSigningIn(false);
     }
   };
 
-  const handleAdminSignOut = () => {
+  const handleAdminSignOut = async () => {
+    try {
+      if (adminToken) {
+        await fetch('/api/auth/admin/logout', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+        });
+      }
+    } catch {
+      // Local session is cleared even if logout request fails
+    }
+
+    setAdminToken(null);
     setIsAdminLoggedIn(false);
     setAdminRole(null);
-    sessionStorage.removeItem('mw_admin_logged');
-    sessionStorage.removeItem('mw_admin_role');
-    showMsg('Admin session closed safely.', 'success');
+    sessionStorage.removeItem('mw_admin_token');
+    showMsg('Admin session closed.', 'success');
   };
+
+  useEffect(() => {
+    if (!adminToken) {
+      setIsAdminLoggedIn(false);
+      setAdminRole(null);
+      return;
+    }
+
+    fetch('/api/auth/admin/me', { headers: { Authorization: `Bearer ${adminToken}` } })
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.ok && data.admin) {
+          setIsAdminLoggedIn(true);
+          setAdminRole(data.admin.role);
+        } else {
+          setAdminToken(null);
+          setIsAdminLoggedIn(false);
+          setAdminRole(null);
+          sessionStorage.removeItem('mw_admin_token');
+        }
+      })
+      .catch(() => {
+        setAdminToken(null);
+        setIsAdminLoggedIn(false);
+        setAdminRole(null);
+        sessionStorage.removeItem('mw_admin_token');
+      });
+  }, [adminToken]);
 
   // Load all system registers from the mock APIs
   const loadAdminData = async () => {
+    if (!adminToken) return;
     setIsLoading(true);
     try {
-      const headersValue = token ? { 'Authorization': `Bearer ${token}` } : {};
-      
-      const bookRes = await fetch('/api/admin/bookings', { headers: headersValue });
+      const bookRes = await fetch('/api/admin/bookings', { headers: getAdminHeaders() });
       const bookData = await bookRes.json();
       if (bookRes.ok && bookData.bookings) {
         setBookings(bookData.bookings);
+      } else if (bookRes.status === 401) {
+        handleAdminSignOut();
+        return;
       }
 
-      const payRes = await fetch('/api/admin/payments', { headers: headersValue });
-      const payData = await payRes.json();
-      if (payRes.ok && payData.payments) {
-        setPayments(payData.payments);
+      if (adminRole === 'super') {
+        const payRes = await fetch('/api/admin/payments', { headers: getAdminHeaders() });
+        const payData = await payRes.json();
+        if (payRes.ok && payData.payments) {
+          setPayments(payData.payments);
+        }
+
+        const logRes = await fetch('/api/admin/logs', { headers: getAdminHeaders() });
+        const logData = await logRes.json();
+        if (logRes.ok && logData.logs) {
+          setLogs(logData.logs);
+        }
       }
 
-      const qrRes = await fetch('/api/admin/gcash-qr', { headers: headersValue });
+      const qrRes = await fetch('/api/admin/gcash-qr');
       const qrData = await qrRes.json();
       if (qrRes.ok && qrData.url) {
         setAdminQRPref(qrData.url);
-      }
-
-      const logRes = await fetch('/api/admin/logs', { headers: headersValue });
-      const logData = await logRes.json();
-      if (logRes.ok && logData.logs) {
-        setLogs(logData.logs);
       }
     } catch (e: any) {
       console.error('Failed to query administrative registers:', e);
@@ -228,10 +305,10 @@ export default function AdminWorkstation({
   };
 
   useEffect(() => {
-    if (isAdminLoggedIn) {
+    if (isAdminLoggedIn && adminToken && adminRole) {
       loadAdminData();
     }
-  }, [token, isAdminLoggedIn]);
+  }, [adminToken, isAdminLoggedIn, adminRole]);
 
   // Seeding simulated entries
   const handleSeedCommand = async () => {
@@ -239,7 +316,7 @@ export default function AdminWorkstation({
     try {
       const res = await fetch('/api/admin/seed', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: getAdminHeaders(true),
       });
       const data = await res.json();
       if (res.ok) {
@@ -260,10 +337,7 @@ export default function AdminWorkstation({
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
+        headers: getAdminHeaders(true),
         body: JSON.stringify({ 
           paymentStatus: newStatus,
           adminNotes: reasonNotes || undefined
@@ -311,7 +385,7 @@ export default function AdminWorkstation({
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+        headers: getAdminHeaders(),
       });
       const data = await res.json();
       if (res.ok) {
@@ -333,10 +407,7 @@ export default function AdminWorkstation({
     try {
       const res = await fetch(`/api/admin/payments/${paymentId}/verify`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
+        headers: getAdminHeaders(true),
         body: JSON.stringify({
           status,
           adminRemarks: status === 'Rejected' ? rejectionReason : undefined
@@ -372,10 +443,7 @@ export default function AdminWorkstation({
         const base64 = reader.result as string;
         const res = await fetch('/api/admin/gcash-qr', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          },
+          headers: getAdminHeaders(true),
           body: JSON.stringify({ qrImageBase64: base64 })
         });
         const data = await res.json();
@@ -479,15 +547,12 @@ export default function AdminWorkstation({
     .filter(b => b.paymentStatus === 'Paid')
     .reduce((sum, b) => sum + b.numberOfChildren, 0);
 
-  const activityCounts = {
-    'Dumagat River Trekking': 0,
-    'Kayaking & Tubing': 0,
-    'Waterpark Day Pass': 0,
-    'Extreme Bamboo Rafting': 0
-  };
-  bookings.forEach(b => {
-    if (activityCounts[b.activityName as keyof typeof activityCounts] !== undefined) {
-      activityCounts[b.activityName as keyof typeof activityCounts]++;
+  const activityCounts = Object.fromEntries(
+    activities.map((act) => [act.name, 0])
+  ) as Record<string, number>;
+  bookings.forEach((b) => {
+    if (activityCounts[b.activityName] !== undefined) {
+      activityCounts[b.activityName]++;
     }
   });
 
@@ -537,8 +602,8 @@ export default function AdminWorkstation({
 
   // Add Dynamic Activity
   const saveNewActivity = () => {
-    if (!newActForm.name || !newActForm.adultRate) {
-      showMsg('Please supply a name and adult rate for the activity.', 'error');
+    if (!newActForm.name || newActForm.adultRate === undefined) {
+      showMsg('Please supply a name and rate for the activity.', 'error');
       return;
     }
     const newId = 'act_' + Date.now();
@@ -551,15 +616,17 @@ export default function AdminWorkstation({
     setIsAddingActivity(false);
     // Reset Form
     setNewActForm({
-      name: 'Dumagat River Trekking',
+      name: 'Kawa Spa',
       tagline: '',
       description: '',
       longDescription: '',
-      duration: 'Full Day (6 hours)',
-      difficulty: 'Moderate',
-      ageRequirement: 'Min Age: 12+',
+      duration: '1 Hour',
+      difficulty: 'Easy',
+      ageRequirement: 'All ages',
       adultRate: 350,
-      childRate: 175,
+      childRate: 500,
+      primaryRateLabel: 'Small',
+      secondaryRateLabel: 'Big',
       image: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&q=80&w=600',
       highlights: [],
       safetyGuidelines: [],
@@ -674,12 +741,6 @@ export default function AdminWorkstation({
             </div>
           </div>
 
-          <div className="p-3 bg-amber-50 border border-amber-200 text-[10px] rounded leading-relaxed text-amber-900 space-y-1">
-            <p><strong>SIMULATED REGISTER CREDENTIALS:</strong></p>
-            <p>● Super Admin: User: <code className="font-mono font-bold bg-amber-100 px-1 py-0.2 rounded">admin</code> | Pass: <code className="font-mono font-bold bg-amber-100 px-1 py-0.2 rounded">AdminPassword55!</code></p>
-            <p>● Staff Operator: User: <code className="font-mono font-bold bg-amber-100 px-1 py-0.2 rounded">staff</code> | Pass: <code className="font-mono font-bold bg-amber-100 px-1 py-0.2 rounded">StaffPassword55!</code></p>
-          </div>
-
           <div className="flex gap-2.5">
             <button
               type="button"
@@ -690,9 +751,10 @@ export default function AdminWorkstation({
             </button>
             <button
               type="submit"
-              className="flex-1 bg-[#1B3022] hover:bg-[#A67C52] text-white text-xs font-bold uppercase py-3 rounded transition-all shadow cursor-pointer"
+              disabled={isAdminSigningIn}
+              className="flex-1 bg-[#1B3022] hover:bg-[#A67C52] text-white text-xs font-bold uppercase py-3 rounded transition-all shadow cursor-pointer disabled:opacity-60"
             >
-              Login
+              {isAdminSigningIn ? 'Authenticating...' : 'Login'}
             </button>
           </div>
         </form>
@@ -704,12 +766,12 @@ export default function AdminWorkstation({
   /* SECURE ROLE ACCESS GATE PASS SHIELD BACKGROUND          */
   /* ======================================================== */
   const subTabs = [
-    { id: 'overview' as const, name: 'Analytics Monitor', icon: Activity, roles: ['super'] },
-    { id: 'bookings' as const, name: 'Manage Permits Directory', count: bookings.length, icon: Calendar, roles: ['super', 'staff'] },
-    { id: 'payments' as const, name: 'Verify GCash Payments', count: payments.filter(p => p.status === 'Pending').length, icon: CreditCard, roles: ['super'] },
-    { id: 'catalogs' as const, name: 'Manage Catalogs & Schedules', icon: Compass, roles: ['super', 'staff'] },
-    { id: 'customers' as const, name: 'Customers Directory', count: uniqueCustomers.length, icon: Users, roles: ['super'] },
-    { id: 'logs' as const, name: 'Security & Action Audit Logs', count: logs.length, icon: ShieldAlert, roles: ['super'] },
+    { id: 'overview' as const, name: 'Dashboard', icon: Activity, roles: ['super'] },
+    { id: 'bookings' as const, name: 'Bookings', count: bookings.length, icon: Calendar, roles: ['super', 'staff'] },
+    { id: 'payments' as const, name: 'Payments', count: payments.filter(p => p.status === 'Pending').length, icon: CreditCard, roles: ['super'] },
+    { id: 'catalogs' as const, name: 'Activities', icon: Compass, roles: ['super', 'staff'] },
+    { id: 'customers' as const, name: 'Cottages', count: uniqueCustomers.length, icon: Users, roles: ['super'] },
+    { id: 'logs' as const, name: 'Logs', count: logs.length, icon: ShieldAlert, roles: ['super'] },
   ];
 
   const currentTabAllowed = subTabs.find(tab => tab.id === activeSubTab)?.roles.includes(adminRole || '');
@@ -722,22 +784,22 @@ export default function AdminWorkstation({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-[0.3em] font-extrabold text-[#A67C52] block">
-              Government Control Panel • Municipal Waterways Node
+              Admin Control Panel • Dumagat River Node
             </span>
             <span className={`text-[9px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded border ${
               adminRole === 'super' 
                 ? 'bg-emerald-50 text-emerald-850 border-emerald-300' 
                 : 'bg-indigo-50 text-indigo-800 border-indigo-200'
             }`}>
-              {adminRole === 'super' ? '🛡️ Super Admin Access' : '📋 Staff Operator Access'}
+              {adminRole === 'super' ? 'Super Admin Access' : 'Staff Operator Access'}
             </span>
           </div>
           <h2 className="font-serif text-3xl md:text-4xl tracking-tight text-[#1B3022] flex items-center gap-2 mt-1">
             <Lock className="h-6 w-6 text-[#A67C52]" />
-            <span>Pandan River Admin Workstation</span>
+            <span>Mw Adventure Park Admin Workstation</span>
           </h2>
           <p className="text-xs font-light text-gray-500 mt-1 max-w-2xl">
-            Audit high-security software nodes, issue ecological waivers, reconcile pay proofs, and customize catalogue pricing.
+            Manage bookings, payments, and customer data for Dumagat River Adventures.
           </p>
         </div>
 
@@ -749,21 +811,11 @@ export default function AdminWorkstation({
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-
-          <button
-            onClick={handleSeedCommand}
-            disabled={isLancingSeed}
-            className="flex-1 md:flex-initial bg-[#A67C52] hover:bg-[#1B3022] text-[#FAF9F6] text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>{isLancingSeed ? 'Seeding Registries...' : 'Seed Sandbox Data'}</span>
-          </button>
-
           <button
             onClick={handleAdminSignOut}
             className="bg-red-700 hover:bg-red-800 text-[#FAF9F6] text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded transition-all text-center cursor-pointer"
           >
-            Exit Workspace
+            Logout
           </button>
         </div>
       </div>
@@ -825,42 +877,42 @@ export default function AdminWorkstation({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-white border border-stone-200 p-6 rounded shadow-sm flex flex-col justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-[#A67C52] uppercase tracking-wider block">Audited Revenue</span>
+                    <span className="text-[10px] font-bold text-[#A67C52] uppercase tracking-wider block">Total Revenue</span>
                     <h3 className="text-3xl font-serif text-[#1B3022] font-black mt-1">₱{totalRevenue.toLocaleString()}</h3>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-4 block">Reconciled Eco-Tourism proceeds</span>
+                  <span className="text-[10px] text-gray-400 mt-4 block">Total revenue from all bookings</span>
                 </div>
 
                 <div className="bg-white border border-stone-200 p-6 rounded shadow-sm flex flex-col justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Pending / Float Cash</span>
+                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Pending Payments</span>
                     <h3 className="text-3xl font-serif text-amber-700 font-black mt-1">₱{pendingRevenue.toLocaleString()}</h3>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-4 block">Awaiting payment verification</span>
+                  <span className="text-[10px] text-gray-400 mt-4 block">Total pending payments</span>
                 </div>
 
                 <div className="bg-white border border-stone-200 p-6 rounded shadow-sm flex flex-col justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider block">Cancelled Reversals</span>
+                    <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider block">Refunded Payments</span>
                     <h3 className="text-3xl font-serif text-red-800 font-black mt-1">₱{cancelledRevenue.toLocaleString()}</h3>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-4 block">Refunded cancelled vouchers</span>
+                  <span className="text-[10px] text-gray-400 mt-4 block">Total refunded payments</span>
                 </div>
 
                 <div className="bg-white border border-stone-200 p-6 rounded shadow-sm flex flex-col justify-between">
                   <div>
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Total Visitors</span>
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Total Bookings</span>
                     <h3 className="text-3xl font-serif text-[#1B3022] font-black mt-1">{totalAdultsServed + totalChildrenServed}</h3>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-4 block">{totalAdultsServed} Adults vs {totalChildrenServed} Children admitted</span>
+                  <span className="text-[10px] text-gray-400 mt-4 block">Total bookings made</span>
                 </div>
               </div>
 
               {/* Administrative Export Deck & CSV triggers */}
               <div className="bg-stone-50 border border-dashed border-[#1B3022]/15 p-6 rounded flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                  <h4 className="font-serif text-lg font-bold">Environmental Data Export Deck</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">Generate daily accounting worksheets containing visitor histories, rough ages, and waiver logs.</p>
+                  <h4 className="font-serif text-lg font-bold">Bookings Export Deck</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Export bookings data to Excel or CSV format.</p>
                 </div>
 
                 <div className="flex gap-2 flex-wrap">
@@ -869,14 +921,14 @@ export default function AdminWorkstation({
                     className="px-4 py-2.5 bg-[#1B3022] hover:bg-[#A67C52] text-white text-xs font-bold uppercase tracking-wider rounded flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
                   >
                     <FileText className="h-4 w-4" />
-                    <span>Export Excel / CSV Ledger</span>
+                    <span>Export Excel / CSV </span>
                   </button>
                   <button
                     onClick={() => window.print()}
                     className="px-4 py-2.5 bg-white border border-[#1B3022]/15 hover:bg-stone-50 text-stone-700 text-xs font-bold uppercase tracking-wider rounded flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Printer className="h-4 w-4" />
-                    <span>Print Ledger (PDF)</span>
+                    <span>Print(PDF)</span>
                   </button>
                 </div>
               </div>
@@ -887,8 +939,8 @@ export default function AdminWorkstation({
                 {/* Popularity Metrics: River Adventures */}
                 <div className="bg-white border border-stone-200 p-6 rounded shadow-sm space-y-4">
                   <div className="border-b border-stone-100 pb-3">
-                    <h4 className="font-serif text-base font-bold">Adventure Allocation Demand</h4>
-                    <p className="text-[11px] text-gray-400">Total registered slots compiled across the system</p>
+                    <h4 className="font-serif text-base font-bold">Available Activity Capacity</h4>
+                    <p className="text-[11px] text-gray-400">Total participant slots available across all activities.</p>
                   </div>
 
                   <div className="space-y-3">
@@ -917,8 +969,8 @@ export default function AdminWorkstation({
                 {/* Popularity Metrics: Cottage Add-ons */}
                 <div className="bg-white border border-stone-200 p-6 rounded shadow-sm space-y-4">
                   <div className="border-b border-stone-100 pb-3">
-                    <h4 className="font-serif text-base font-bold">Cottage Add-on Preferences</h4>
-                    <p className="text-[11px] text-gray-400">Stilt structures preferences selected during check-in</p>
+                    <h4 className="font-serif text-base font-bold">Booking Demand</h4>
+                    <p className="text-[11px] text-gray-400">Total reservations recorded across all activities.</p>
                   </div>
 
                   <div className="space-y-3">
@@ -1049,13 +1101,13 @@ export default function AdminWorkstation({
                     <thead>
                       <tr className="bg-stone-50 border-b border-stone-200 text-stone-500 font-bold uppercase text-[10px] tracking-wider">
                         <th className="p-4">Reference ID</th>
-                        <th className="p-4">Tourist Profile</th>
-                        <th className="p-4">Activity & Cabin Details</th>
-                        <th className="p-4">Reservation Date</th>
-                        <th className="p-4 text-center">Pax</th>
-                        <th className="p-4 text-right">Ledge Fee</th>
+                        <th className="p-4">Guest Profile</th>
+                        <th className="p-4">Reservation Details</th>
+                        <th className="p-4">Booking Date</th>
+                        <th className="p-4 text-center">Guest</th>
+                        <th className="p-4 text-right">Total Amount</th>
                         <th className="p-4 text-center">Status</th>
-                        <th className="p-4 text-right">Administrative Action</th>
+                        <th className="p-4 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
@@ -1206,7 +1258,7 @@ export default function AdminWorkstation({
                         <th className="p-3">Activity / Uploaded Date</th>
                         <th className="p-3 text-right">Amount</th>
                         <th className="p-3 text-center">Status</th>
-                        <th className="p-3 text-right">Administrative Action</th>
+                        <th className="p-3 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
@@ -1326,13 +1378,13 @@ export default function AdminWorkstation({
                   onClick={() => setCatalogEditorTab('activities')}
                   className={`pb-2 border-b-2 transition-all cursor-pointer ${catalogEditorTab === 'activities' ? 'border-[#A67C52] text-[#A67C52]' : 'border-transparent text-gray-400'}`}
                 >
-                  River Adventure Packages catalogue
+                  Activities
                 </button>
                 <button
                   onClick={() => setCatalogEditorTab('cottages')}
                   className={`pb-2 border-b-2 transition-all cursor-pointer ${catalogEditorTab === 'cottages' ? 'border-[#A67C52] text-[#A67C52]' : 'border-transparent text-gray-400'}`}
                 >
-                  Riverside Cottage cabins
+                  Cottages
                 </button>
               </div>
 
@@ -1344,7 +1396,7 @@ export default function AdminWorkstation({
                   <div className="flex justify-between items-center bg-white p-4 border border-stone-200 rounded shadow-sm">
                     <div>
                       <h4 className="font-serif text-md font-bold">Activities Directory</h4>
-                      <p className="text-[11px] text-gray-450 mt-0.5">Toggle weather suspensions, update pricing rates, and add custom adventure packages.</p>
+                      <p className="text-[11px] text-gray-450 mt-0.5">Manage activity availability, update pricing, and create or modify adventure packages.</p>
                     </div>
                     <button
                       onClick={() => setIsAddingActivity(true)}
@@ -1365,7 +1417,7 @@ export default function AdminWorkstation({
                               <span className="text-[9px] uppercase tracking-widest text-[#A67C52] font-semibold">{act.difficulty} • {act.duration}</span>
                               <h4 className="font-serif text-lg font-bold text-[#1B3022] flex items-center gap-1.5 leading-tight">
                                 <span>{act.name}</span>
-                                {act.disabled && <span className="text-[9px] uppercase tracking-wide bg-red-100 text-red-800 border border-red-300 px-1.5 py-0.5 rounded font-bold">Weather Closed</span>}
+                                {act.disabled && <span className="text-[9px] uppercase tracking-wide bg-red-100 text-red-800 border border-red-300 px-1.5 py-0.5 rounded font-bold">Closed</span>}
                               </h4>
                             </div>
                             
@@ -1388,7 +1440,7 @@ export default function AdminWorkstation({
                                 : 'bg-red-50 text-red-700 hover:bg-red-650 hover:text-white border border-red-200'
                             }`}
                           >
-                            {act.disabled ? '☀️ Open Activity (Good Weather)' : '⚠️ Toggle Weather Closure'}
+                           {act.disabled ? 'Enable Activity' : 'Disable Activity'}
                           </button>
 
                           <div className="flex gap-1">
@@ -1719,7 +1771,7 @@ export default function AdminWorkstation({
                   
                   <div className="border border-stone-200 rounded bg-stone-50 p-2 max-h-[300px] overflow-hidden flex items-center justify-center relative group">
                     <img
-                      src={selectedProofForReview.proofFileName}
+                      src={getProofImageUrl(selectedProofForReview.proofFileName)}
                       alt="Uploaded Reconcile Document"
                       referrerPolicy="no-referrer"
                       className="max-h-[280px] md:max-h-[320px] object-contain shadow-sm rounded transition-transform group-hover:scale-105"
@@ -2194,16 +2246,13 @@ export default function AdminWorkstation({
             <div className="space-y-3 text-xs">
               <div className="space-y-1">
                 <label className="font-extrabold text-gray-500 uppercase">New Activity Selection</label>
-                <select
-                  value={newActForm.name as any}
-                  onChange={(e) => setNewActForm({ ...newActForm, name: e.target.value as any })}
+                <input
+                  type="text"
+                  placeholder="e.g. Kawa Spa"
+                  value={newActForm.name || ''}
+                  onChange={(e) => setNewActForm({ ...newActForm, name: e.target.value as ActivityType['name'] })}
                   className="w-full p-2 bg-stone-50 border border-stone-200 rounded text-[#1B3022]"
-                >
-                  <option value="Dumagat River Trekking">Dumagat River Trekking</option>
-                  <option value="Kayaking & Tubing">Kayaking & Tubing</option>
-                  <option value="Waterpark Day Pass">Waterpark Day Pass</option>
-                  <option value="Extreme Bamboo Rafting">Extreme Bamboo Rafting</option>
-                </select>
+                />
               </div>
 
               <div className="space-y-1">
