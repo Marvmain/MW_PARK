@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import { DB } from '../data/manager';
 import { Booking, Receipt } from '../../src/types';
 import { DB, uploadPaymentProofToStorage } from '../data/manager';
 
@@ -276,4 +275,4 @@ export const AdminController = {
     } catch (e: any) {
       res.json({ success: true, hasCustomQr: false, url: null });
     }
-  },
+  },}
