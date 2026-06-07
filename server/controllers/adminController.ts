@@ -254,23 +254,26 @@ export const AdminController = {
 
   async getGcashQr(req: Request, res: Response): Promise<void> {
     try {
-      // Try both png and jpg since admin may have uploaded either
-      const { supabaseAdmin } = await import('../lib/supabaseClient');
+      const { supabaseAdmin } = await import('../lib/supabaseClient.js');
       const BUCKET = process.env.SUPABASE_PAYMENT_PROOFS_BUCKET || 'payment-proofs';
-
+  
       const candidates = ['admin/gcash_qr.png', 'admin/gcash_qr.jpg'];
       let publicUrl: string | null = null;
-
-      for (const path of candidates) {
-        const { data } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
-        // Verify the file actually exists by checking it returns a usable URL
-        const check = await fetch(data.publicUrl, { method: 'HEAD' }).catch(() => null);
-        if (check && check.ok) {
+  
+      for (const filePath of candidates) {
+        const { data } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(filePath);
+  
+        // Check if file actually exists in storage bucket listing
+        const { data: fileList, error: listError } = await supabaseAdmin.storage
+          .from(BUCKET)
+          .list('admin', { search: filePath.replace('admin/', '') });
+  
+        if (!listError && fileList && fileList.length > 0) {
           publicUrl = data.publicUrl;
           break;
         }
       }
-
+  
       res.json({ success: true, hasCustomQr: !!publicUrl, url: publicUrl });
     } catch (e: any) {
       res.json({ success: true, hasCustomQr: false, url: null });

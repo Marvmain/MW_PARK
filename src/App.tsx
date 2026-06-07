@@ -31,8 +31,8 @@ import { loadActivitiesFromStorage, formatActivityPriceSummary, getPrimaryGuestL
 import CottagesCatalog from './components/CottagesCatalog';
 import CottageDetailModal from './components/CottageDetailModal';
 import { Home, Leaf } from 'lucide-react';
-import BookingPanel from './components/BookingPanel';
 import BookingModal from './components/BookingModal';
+import QRTicket from './components/QRTicket';
 
 export default function App() {
   // Dynamic Activities and Cottages Catalog States
@@ -1110,32 +1110,37 @@ export default function App() {
 
                             {/* GCash Payment Mode Integration */}
                             {item.paymentStatus === 'Paid' ? (
-                               <div className="mt-4 pt-4 border-t border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
-                                 <div className="flex gap-4 items-center">
-                                   <div className="border border-emerald-300 p-1.5 bg-white rounded shrink-0">
-                                     <QrCode className="h-16 w-16 text-[#1B3022]" />
-                                   </div>
-                                   <div className="space-y-1 overflow-hidden">
-                                     <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[8px] font-bold text-emerald-800 uppercase tracking-wider">
-                                       ✓ Active Admission Ticket
-                                     </span>
-                                     <p className="text-[10px] font-bold text-[#1B3022] truncate">QR TOKEN: {item.qrCodeToken.substring(0, 16)}...</p>
-                                     <p className="text-[9px] text-[#A67C52] leading-tight">
-                                       Please present this QR ticket on your device upon arrival at MW Adventure Park terminal in Pandan for instant hardware scanning.
-                                     </p>
-                                   </div>
-                                 </div>
-                                 <div className="pt-2 border-t border-emerald-100 flex justify-end">
-                                   <button
-                                     id={`view-receipt-btn-${item.id}`}
-                                     onClick={() => handleViewReceipt(item.id)}
-                                     className="px-3 py-1.5 bg-[#1B3022] hover:bg-[#A67C52] text-white text-[10px] font-bold uppercase tracking-wider rounded transition-all cursor-pointer flex items-center gap-1.5"
-                                   >
-                                     <FileText className="h-3.5 w-3.5" />
-                                     <span>View Official Receipt</span>
-                                   </button>
-                                 </div>
-                               </div>
+                                <div className="mt-4 pt-4 border-t border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
+                                <div className="flex gap-4 items-center">
+                                  <div className="shrink-0">
+                                    <QRTicket token={item.qrCodeToken} bookingId={item.id} size={110} />
+                                  </div>
+                                  <div className="space-y-1 overflow-hidden">
+                                    <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[8px] font-bold text-emerald-800 uppercase tracking-wider">
+                                      ✓ Active Admission Ticket
+                                    </span>
+                                    <p className="text-[10px] font-bold text-[#1B3022] truncate">
+                                      ID: {item.id}
+                                    </p>
+                                    <p className="text-[9px] font-mono text-gray-400 truncate">
+                                      TOKEN: {item.qrCodeToken.substring(0, 20)}...
+                                    </p>
+                                    <p className="text-[9px] text-[#A67C52] leading-tight">
+                                      Present this QR code upon arrival at MW Adventure Park for instant scanning.
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="pt-2 border-t border-emerald-100 flex justify-end">
+                                  <button
+                                    id={`view-receipt-btn-${item.id}`}
+                                    onClick={() => handleViewReceipt(item.id)}
+                                    className="px-3 py-1.5 bg-[#1B3022] hover:bg-[#A67C52] text-white text-[10px] font-bold uppercase tracking-wider rounded transition-all cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    <FileText className="h-3.5 w-3.5" />
+                                    <span>View Official Receipt</span>
+                                  </button>
+                                </div>
+                              </div>
                              ) : item.paymentStatus === 'Pending Verification' ? (
                                /* CASE 2: SCREENSHOT SUBMITTED AND PENDING REVIEW */
                                <div className="mt-4 pt-4 border-t border-amber-200/50 bg-amber-50/50 p-4 rounded space-y-2 text-center">
@@ -1463,10 +1468,19 @@ export default function App() {
 
               {/* Government Stamp Graphic & message block */}
               <div className="text-center space-y-2 pt-2">
-                <div className="border border-emerald-300 bg-emerald-50 text-emerald-800 rounded p-2.5 inline-block text-xs font-bold uppercase tracking-wider">
-                  ✓ Eco-Fee Fully Settled & Cleared
-                </div>
-                <p className="text-[9px] text-gray-400 leading-relaxed italic max-w-sm mx-auto">
+                                <div className="flex flex-col items-center gap-3">
+                    {viewingReceipt?.bookingId && (
+                      <QRTicket
+                        token={viewingReceipt.paymentId}
+                        bookingId={viewingReceipt.bookingId}
+                        size={140}
+                      />
+                    )}
+                    <div className="border border-emerald-300 bg-emerald-50 text-emerald-800 rounded p-2.5 inline-block text-xs font-bold uppercase tracking-wider">
+                      ✓ Eco-Fee Fully Settled & Cleared
+                    </div>
+                  </div>
+                   <p className="text-[9px] text-gray-400 leading-relaxed italic max-w-sm mx-auto">
                   Disclaimer: This document is issued as digital proof-of-payment. Local ecological permit ordinances are protected by municipal resolutions. Present on terminal boarding.
                 </p>
               </div>
