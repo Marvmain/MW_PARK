@@ -12,7 +12,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'The Big Kubo is a traditional Filipino nipa hut with ample floor space to accommodate larger groups. Its wide open-air design keeps it cool and breezy, making it the ideal shaded base camp for families, barkadas, and corporate outings who want a comfortable place to gather, eat, and rest between activities along the Pandan River.',
     capacity: 'Up to 15 Guests',
     ratePerDay: 500,
-    image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80',
+    image: 'blob:https://www.facebook.com/64228089-152f-4fa8-be4c-417128e84b1d',
     amenities: [
       'Spacious nipa-roofed open-air floor area',
       'Bamboo bench seating around the perimeter',
@@ -36,7 +36,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'The Small Kubo is a compact, charming nipa hut ideal for smaller groups who want their own dedicated space along the riverbank. Whether you\'re settling in for a packed lunch, resting between river activities, or just enjoying the natural scenery in the shade, this cozy kubo provides the perfect spot at an affordable rate.',
     capacity: 'Up to 6 Guests',
     ratePerDay: 400,
-    image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80',
+    image: 'blob:https://www.facebook.com/1329781c-156a-4103-bb33-75d3ba49b321',
     amenities: [
       'Compact nipa-roofed shaded space',
       'Bamboo bench seating',
@@ -60,7 +60,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'Our outdoor table-and-umbrella sets are positioned at scenic spots along the riverbank, giving guests a comfortable place to sit, eat, and unwind without needing to reserve a full kubo or cottage. Each set comes with a durable table and bench seating for small groups, shaded by a wide umbrella to keep you cool under the Pandan sun.',
     capacity: 'Up to 4 Guests',
     ratePerDay: 200,
-    image: 'https://images.unsplash.com/photo-1504150558240-0b4fd8946624?auto=format&fit=crop&w=800&q=80',
+    image: 'blob:https://www.facebook.com/54d52a70-51a0-4cdc-b369-5e552ef83dc5',
     amenities: [
       'Large shade umbrella',
       'Sturdy outdoor table',
@@ -84,7 +84,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'The Arko is MW Adventure Park\'s premier covered pavilion, designed for large events, corporate outings, birthday parties, and reunions. With ample covered floor space, the Arko can accommodate large groups comfortably. Its open-sided design keeps it naturally ventilated while providing full overhead protection from the sun and rain, making it the ideal venue for any riverside gathering. Tables and seating arrangements can be coordinated with park staff.',
     capacity: 'Up to 50 Guests',
     ratePerDay: 1000,
-    image: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=800&q=80',
+    image: 'blob:https://www.facebook.com/db474dcd-ee2b-4899-8221-151302f3e1e2',
     amenities: [
       'Large covered pavilion with full overhead rain and sun protection',
       'Open-sided design for natural river breeze ventilation',

@@ -122,7 +122,7 @@ export interface Activity {
 
 export interface Cottage {
   id: string;
-  name: 'Riverfront Canopy Cabana' | 'Dumagat Stilt Lodge' | 'Forest Canopy Treehouse' | 'Pandan Bamboo Shelter';
+  name: 'Kubo (Big)' | 'Kubo (Small)' | 'Table with Umbrella' | 'Arko';
   type: string;
   tagline: string;
   description: string;
