@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../../src/lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient'
 import { DB } from '../data/manager';
 import { getCustomerFromToken } from '../lib/auth';
 import { authenticateAdmin, signAdminToken, verifyAdminToken } from '../lib/adminAuth';
