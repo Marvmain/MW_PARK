@@ -12,7 +12,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'The Big Kubo is a traditional Filipino nipa hut with ample floor space to accommodate larger groups. Its wide open-air design keeps it cool and breezy, making it the ideal shaded base camp for families, barkadas, and corporate outings who want a comfortable place to gather, eat, and rest between activities along the Pandan River.',
     capacity: 'Up to 15 Guests',
     ratePerDay: 500,
-    image: 'blob:https://www.facebook.com/64228089-152f-4fa8-be4c-417128e84b1d',
+    image: 'https://scontent.fcgy2-1.fna.fbcdn.net/v/t39.30808-6/494192402_1254714406664221_5754563307825714908_n.jpg?stp=dst-jpg_tt6&cstp=mx2048x2048&ctp=s2048x2048&_nc_cat=102&ccb=1-7&_nc_sid=f727a1&_nc_eui2=AeEpL5ToaYGUtHuLaTjTN0N25-Gx6RGGLTPn4bHpEYYtMwjsllkNVM-ABfED5tjMzkHxsyNDG5ldolKN4X-ONjEx&_nc_ohc=n2CnnXMqvl8Q7kNvwGYXQat&_nc_oc=AdpVRfD07C2Mm3h4oMoYZPe3gUxQQwTgJ3-Z2Z6P0Hs_25TDAx0eozGuQs_WoibCCXoR28inMjIVh_ar744V27To&_nc_zt=23&_nc_ht=scontent.fcgy2-1.fna&_nc_gid=mLtiiVHCLqHYRLZj14ycNw&_nc_ss=7b2a8&oh=00_Af_AMj_XiZxRgqEvTqLQk7-JxvQ1GE0INneGTHPR9mxSyA&oe=6A2B5CBF',
     amenities: [
       'Spacious nipa-roofed open-air floor area',
       'Bamboo bench seating around the perimeter',
@@ -36,7 +36,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'The Small Kubo is a compact, charming nipa hut ideal for smaller groups who want their own dedicated space along the riverbank. Whether you\'re settling in for a packed lunch, resting between river activities, or just enjoying the natural scenery in the shade, this cozy kubo provides the perfect spot at an affordable rate.',
     capacity: 'Up to 6 Guests',
     ratePerDay: 400,
-    image: 'blob:https://www.facebook.com/1329781c-156a-4103-bb33-75d3ba49b321',
+    image: 'https://scontent.fcgy2-1.fna.fbcdn.net/v/t39.30808-6/494192402_1254714406664221_5754563307825714908_n.jpg?stp=dst-jpg_tt6&cstp=mx2048x2048&ctp=s2048x2048&_nc_cat=102&ccb=1-7&_nc_sid=f727a1&_nc_eui2=AeEpL5ToaYGUtHuLaTjTN0N25-Gx6RGGLTPn4bHpEYYtMwjsllkNVM-ABfED5tjMzkHxsyNDG5ldolKN4X-ONjEx&_nc_ohc=n2CnnXMqvl8Q7kNvwGYXQat&_nc_oc=AdpVRfD07C2Mm3h4oMoYZPe3gUxQQwTgJ3-Z2Z6P0Hs_25TDAx0eozGuQs_WoibCCXoR28inMjIVh_ar744V27To&_nc_zt=23&_nc_ht=scontent.fcgy2-1.fna&_nc_gid=mLtiiVHCLqHYRLZj14ycNw&_nc_ss=7b2a8&oh=00_Af_AMj_XiZxRgqEvTqLQk7-JxvQ1GE0INneGTHPR9mxSyA&oe=6A2B5CBF',
     amenities: [
       'Compact nipa-roofed shaded space',
       'Bamboo bench seating',
@@ -60,7 +60,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'Our outdoor table-and-umbrella sets are positioned at scenic spots along the riverbank, giving guests a comfortable place to sit, eat, and unwind without needing to reserve a full kubo or cottage. Each set comes with a durable table and bench seating for small groups, shaded by a wide umbrella to keep you cool under the Pandan sun.',
     capacity: 'Up to 4 Guests',
     ratePerDay: 200,
-    image: 'blob:https://www.facebook.com/54d52a70-51a0-4cdc-b369-5e552ef83dc5',
+    image: 'https://scontent.fcgy2-1.fna.fbcdn.net/v/t39.30808-6/705149563_2051152219132642_2441539637335027618_n.jpg?stp=dst-jpg_tt6&cstp=mx720x960&ctp=s720x960&_nc_cat=100&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeH6wXjb-xodoDu5ASDjto3yvuVu7iEkLk2-5W7uISQuTdU8SclPm-rcUoJiQh9c1CGidvf4wi-6SRXbpKazWVeh&_nc_ohc=3OtaWBR18REQ7kNvwGoe4BP&_nc_oc=Ado2sb4DQYYooV8q6zUaXac5sGU2CiGlYCK0YN31cASJbPzLCcUK4IxTtcyaos-scqMBM9B38p4f1kiiQXBvIFGn&_nc_zt=23&_nc_ht=scontent.fcgy2-1.fna&_nc_gid=Lgozjfx5_JMcjJ7VTH4WfA&_nc_ss=7b2a8&oh=00_Af9gGLZTVnOrbkRagTruTYXzY3FjuxxkE_MwQRemY2S2pg&oe=6A2B5D8C',
     amenities: [
       'Large shade umbrella',
       'Sturdy outdoor table',
@@ -84,7 +84,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'The Arko is MW Adventure Park\'s premier covered pavilion, designed for large events, corporate outings, birthday parties, and reunions. With ample covered floor space, the Arko can accommodate large groups comfortably. Its open-sided design keeps it naturally ventilated while providing full overhead protection from the sun and rain, making it the ideal venue for any riverside gathering. Tables and seating arrangements can be coordinated with park staff.',
     capacity: 'Up to 50 Guests',
     ratePerDay: 1000,
-    image: 'blob:https://www.facebook.com/db474dcd-ee2b-4899-8221-151302f3e1e2',
+    image: 'https://scontent.fcgy2-1.fna.fbcdn.net/v/t39.30808-6/494192402_1254714406664221_5754563307825714908_n.jpg?stp=dst-jpg_tt6&cstp=mx2048x2048&ctp=s2048x2048&_nc_cat=102&ccb=1-7&_nc_sid=f727a1&_nc_eui2=AeEpL5ToaYGUtHuLaTjTN0N25-Gx6RGGLTPn4bHpEYYtMwjsllkNVM-ABfED5tjMzkHxsyNDG5ldolKN4X-ONjEx&_nc_ohc=n2CnnXMqvl8Q7kNvwGYXQat&_nc_oc=AdpVRfD07C2Mm3h4oMoYZPe3gUxQQwTgJ3-Z2Z6P0Hs_25TDAx0eozGuQs_WoibCCXoR28inMjIVh_ar744V27To&_nc_zt=23&_nc_ht=scontent.fcgy2-1.fna&_nc_gid=mLtiiVHCLqHYRLZj14ycNw&_nc_ss=7b2a8&oh=00_Af_AMj_XiZxRgqEvTqLQk7-JxvQ1GE0INneGTHPR9mxSyA&oe=6A2B5CBF',
     amenities: [
       'Large covered pavilion with full overhead rain and sun protection',
       'Open-sided design for natural river breeze ventilation',
