@@ -197,19 +197,16 @@ export default function CottagesCatalog({
                   </button>
 
                   {onInstantBook && (
-                    cot.disabled ? (
-                      <span className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-700 text-[9px] font-extrabold uppercase tracking-wide rounded">
-                        ⚠️ DEACTIVATED
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => onInstantBook(cot.name)}
-                        className="px-3.5 py-1.5 bg-[#1B3022] hover:bg-[#A67C52] text-white text-[10px] font-semibold uppercase tracking-wider transition-colors rounded"
-                      >
-                        {isLoggedIn ? 'Add Cottage' : 'Unlock & Book'}
-                      </button>
-                    )
-                  )}
+                        cot.disabled ? (
+                          <span className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-700 text-[9px] font-extrabold uppercase tracking-wide rounded">
+                            ⚠️ DEACTIVATED
+                          </span>
+                        ) : (
+                          <span className="px-3.5 py-1.5 bg-green-50 border border-green-200 text-green-700 text-[10px] font-semibold uppercase tracking-wider rounded">
+                            Available
+                          </span>
+                        )
+                      )}
                 </div>
               </div>
             </div>

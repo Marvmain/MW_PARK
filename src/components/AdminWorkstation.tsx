@@ -30,8 +30,8 @@ import {
   ShieldCheck,
   Edit3
 } from 'lucide-react';
+import AnalyticsOverview from "./AnalyticsOverview";
 import { Booking, Customer, Cottage, Activity as ActivityType, AdminRole } from '../types';
-
 function getProofImageUrl(proofFileName: string): string {
   if (proofFileName.startsWith('http://') || proofFileName.startsWith('https://')) {
     return proofFileName;
@@ -871,134 +871,17 @@ export default function AdminWorkstation({
         <>
           {/* TAB 1: ANALYTICS OVERVIEW MONITOR */}
           {activeSubTab === 'overview' && (
-            <div className="space-y-8">
-              
-              {/* Financial Stats Bar deck */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white border border-stone-200 p-6 rounded shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold text-[#A67C52] uppercase tracking-wider block">Total Revenue</span>
-                    <h3 className="text-3xl font-serif text-[#1B3022] font-black mt-1">₱{totalRevenue.toLocaleString()}</h3>
-                  </div>
-                  <span className="text-[10px] text-gray-400 mt-4 block">Total revenue from all bookings</span>
-                </div>
-
-                <div className="bg-white border border-stone-200 p-6 rounded shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Pending Payments</span>
-                    <h3 className="text-3xl font-serif text-amber-700 font-black mt-1">₱{pendingRevenue.toLocaleString()}</h3>
-                  </div>
-                  <span className="text-[10px] text-gray-400 mt-4 block">Total pending payments</span>
-                </div>
-
-                <div className="bg-white border border-stone-200 p-6 rounded shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider block">Refunded Payments</span>
-                    <h3 className="text-3xl font-serif text-red-800 font-black mt-1">₱{cancelledRevenue.toLocaleString()}</h3>
-                  </div>
-                  <span className="text-[10px] text-gray-400 mt-4 block">Total refunded payments</span>
-                </div>
-
-                <div className="bg-white border border-stone-200 p-6 rounded shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Total Bookings</span>
-                    <h3 className="text-3xl font-serif text-[#1B3022] font-black mt-1">{totalAdultsServed + totalChildrenServed}</h3>
-                  </div>
-                  <span className="text-[10px] text-gray-400 mt-4 block">Total bookings made</span>
-                </div>
-              </div>
-
-              {/* Administrative Export Deck & CSV triggers */}
-              <div className="bg-stone-50 border border-dashed border-[#1B3022]/15 p-6 rounded flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                  <h4 className="font-serif text-lg font-bold">Bookings Export Deck</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">Export bookings data to Excel or CSV format.</p>
-                </div>
-
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={handleExportReservationsCSV}
-                    className="px-4 py-2.5 bg-[#1B3022] hover:bg-[#A67C52] text-white text-xs font-bold uppercase tracking-wider rounded flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-                  >
-                    <FileText className="h-4 w-4" />
-                    <span>Export Excel / CSV </span>
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    className="px-4 py-2.5 bg-white border border-[#1B3022]/15 hover:bg-stone-50 text-stone-700 text-xs font-bold uppercase tracking-wider rounded flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Printer className="h-4 w-4" />
-                    <span>Print(PDF)</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Bento Allocation Diagrams */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
-                {/* Popularity Metrics: River Adventures */}
-                <div className="bg-white border border-stone-200 p-6 rounded shadow-sm space-y-4">
-                  <div className="border-b border-stone-100 pb-3">
-                    <h4 className="font-serif text-base font-bold">Available Activity Capacity</h4>
-                    <p className="text-[11px] text-gray-400">Total participant slots available across all activities.</p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {Object.entries(activityCounts).map(([name, count]) => {
-                      const totalBookingsCount = bookings.length || 1;
-                      const percentage = Math.round((count / totalBookingsCount) * 100);
-                      
-                      return (
-                        <div key={name} className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="font-semibold text-slate-700">{name}</span>
-                            <span className="font-medium text-gray-500 font-mono">{count} permits ({percentage}%)</span>
-                          </div>
-                          <div className="w-full bg-stone-100 h-2.5 rounded overflow-hidden">
-                            <div 
-                              className="bg-[#1B3022] h-full transition-all"
-                              style={{ width: `${Math.max(percentage, 5)}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Popularity Metrics: Cottage Add-ons */}
-                <div className="bg-white border border-stone-200 p-6 rounded shadow-sm space-y-4">
-                  <div className="border-b border-stone-100 pb-3">
-                    <h4 className="font-serif text-base font-bold">Booking Demand</h4>
-                    <p className="text-[11px] text-gray-400">Total reservations recorded across all activities.</p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {Object.entries(cottageCounts).map(([name, count]) => {
-                      const totalCottagesSum = Object.values(cottageCounts).reduce((as, c) => as + c, 0) || 1;
-                      const percentage = Math.round((count / totalCottagesSum) * 100);
-                      
-                      return (
-                        <div key={name} className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="font-semibold text-slate-700">{name}</span>
-                            <span className="font-medium text-gray-500 font-mono">{count} days booked ({percentage}%)</span>
-                          </div>
-                          <div className="w-full bg-stone-100 h-2.5 rounded overflow-hidden">
-                            <div 
-                              className="bg-[#A67C52] h-full transition-all"
-                              style={{ width: `${Math.max(percentage, 5)}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
+            <AnalyticsOverview
+              bookings={bookings}
+              totalRevenue={totalRevenue}
+              pendingRevenue={pendingRevenue}
+              cancelledRevenue={cancelledRevenue}
+              totalAdultsServed={totalAdultsServed}
+              totalChildrenServed={totalChildrenServed}
+              activityCounts={activityCounts}
+              cottageCounts={cottageCounts}
+              handleExportReservationsCSV={handleExportReservationsCSV}
+            />
           )}
 
           {/* TAB 2: MANAGE PERMITS DIRECTORY */}

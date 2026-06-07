@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Anchor, 
-  Calendar, 
   Users, 
   CreditCard, 
   ArrowRight, 
@@ -20,7 +19,9 @@ import {
   Clock,
   Printer,
   ZoomIn,
-  X
+  X,
+  PlusCircle,
+  Calendar
 } from 'lucide-react';
 import { Customer, Booking, Activity, Cottage, ActivityName } from './types';
 import ActivitiesCatalog from './components/ActivitiesCatalog';
@@ -31,6 +32,7 @@ import CottagesCatalog from './components/CottagesCatalog';
 import CottageDetailModal from './components/CottageDetailModal';
 import { Home, Leaf } from 'lucide-react';
 import BookingPanel from './components/BookingPanel';
+import BookingModal from './components/BookingModal';
 
 export default function App() {
   // Dynamic Activities and Cottages Catalog States
@@ -63,7 +65,8 @@ export default function App() {
   // Dashboard view toggle: 'catalog' | 'booking' | 'cottages'
   const [dashboardTab, setDashboardTab] = useState<'catalog' | 'booking' | 'cottages'>('catalog');
 
-
+// booking modal
+  const [showBookingModal, setShowBookingModal] = useState(false);
   // Authentication Switch: 'login' | 'register'
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
 
@@ -813,7 +816,7 @@ export default function App() {
             </div>
 
             {/* HIGH-CRAFT EDITORIAL SUB-TAB BAR */}
-            <div className="flex border-b border-[#1B3022]/15 pb-2 justify-start items-center gap-8 text-xs uppercase tracking-[0.15em] font-bold">
+            <div className="flex border-b border-[#1B3022]/15 pb-2 items-center gap-8 text-xs uppercase tracking-[0.15em] font-bold">
               <button 
                 onClick={() => setDashboardTab('catalog')}
                 className={`pb-2.5 transition-all flex items-center gap-2 focus:outline-none cursor-pointer ${
@@ -853,6 +856,13 @@ export default function App() {
                     {bookings.length}
                   </span>
                 )}
+              </button>
+              <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="ml-auto px-4 py-2 bg-[#1B3022] hover:bg-[#A67C52] text-white rounded-md transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider cursor-pointer"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  <span>Book Now</span>
               </button>
             </div>
 
@@ -980,43 +990,8 @@ export default function App() {
               ) : (
                 <>
                   {/* COLUMN 2: Interactive River Booking Form & Rate Calculator (Width: 4/12) */}
-                  <div className="lg:col-span-4">
-                    <BookingPanel
-                      activitiesList={activitiesList}
-                      cottagesList={cottagesList}
-                      isSubmitting={isSubmittingBooking}
-                      onBrowseCottages={() => setDashboardTab('cottages')}
-                      onSubmit={async (payload) => {
-                        setIsSubmittingBooking(true);
-                        try {
-                          const res = await fetch('/api/bookings', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              Authorization: `Bearer ${token}`,
-                            },
-                            body: JSON.stringify(payload),
-                          });
-
-                          const data = await res.json();
-
-                          if (res.ok) {
-                            showMsg(data.message, 'success');
-                            fetchBookings(token!);
-                          } else {
-                            showMsg(data.error || 'Failed to submit reservation.', 'error');
-                          }
-                        } catch {
-                          showMsg(
-                            'Failed to record reservation. Check network service logs.',
-                            'error'
-                          );
-                        } finally {
-                          setIsSubmittingBooking(false);
-                        }
-                      }}
-                    />
-                  </div>
+                  
+                
 
               {/* COLUMN 3: Active Bookings, PayMongo Gateways, and QR E-tickets (Width: 5/12) */}
               <div className="lg:col-span-5 space-y-6">
@@ -1519,7 +1494,18 @@ export default function App() {
           </div>
         </div>
       )}
-
+            {showBookingModal && (
+            <BookingModal
+              activitiesList={activitiesList}
+              cottagesList={cottagesList}
+              token={token!}
+              onSuccess={() => {
+                fetchBookings(token!);
+              }}
+              showMsg={showMsg}
+              onClose={() => setShowBookingModal(false)}
+            />
+          )}
     </div>
   );
 }

@@ -158,21 +158,20 @@ export default function ActivitiesCatalog({
                     <ChevronRight className="h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
                   </button>
 
+                 
                   {onInstantBook && (
                     act.disabled ? (
                       <span className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-700 text-[9px] font-extrabold uppercase tracking-wide rounded">
                         ⚠️ CLOSED
                       </span>
                     ) : (
-                      <button
-                        onClick={() => onInstantBook(act.name)}
-                        className="px-3.5 py-1.5 bg-[#1B3022] hover:bg-[#A67C52] text-white text-[10px] font-semibold uppercase tracking-wider transition-colors"
-                      >
-                        {isLoggedIn ? 'Book Entry' : 'Unlock & Book'}
-                      </button>
+                      <span className="px-3.5 py-1.5 bg-green-50 border border-green-200 text-green-700 text-[10px] font-semibold uppercase tracking-wider rounded">
+                        Available
+                      </span>
                     )
                   )}
-                </div>
+                                    
+                  </div>
               </div>
             </div>
           ))}
