@@ -255,7 +255,7 @@ export const AdminController = {
   async getGcashQr(req: Request, res: Response): Promise<void> {
     try {
       // Try both png and jpg since admin may have uploaded either
-      const { supabaseAdmin } = await import('../../src/lib/supabaseClient');
+      const { supabaseAdmin } = await import('../lib/supabaseClient');
       const BUCKET = process.env.SUPABASE_PAYMENT_PROOFS_BUCKET || 'payment-proofs';
 
       const candidates = ['admin/gcash_qr.png', 'admin/gcash_qr.jpg'];

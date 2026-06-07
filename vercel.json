@@ -5,19 +5,13 @@
   "framework": null,
   "functions": {
     "api/index.ts": {
-      "includeFiles": "server/**,src/**"
+      "includeFiles": "server/**,src/types.ts,src/activitiesData.ts"
     }
   },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.ts" },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map))",
-      "dest": "/$1"
-    },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map))", "dest": "/$1" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

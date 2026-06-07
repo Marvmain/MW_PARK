@@ -13,10 +13,6 @@ app.use('/api/auth', authRouter);
 app.use('/api/bookings', bookingRouter);
 app.use('/api/admin', adminRouter);
 
-app.use(
-  '/uploads',
-  express.static(path.join(process.cwd(), 'data', 'uploads'))
-);
 
 app.get('/api/health', (_req, res) => {
   res.json({
