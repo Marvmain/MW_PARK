@@ -1,8 +1,7 @@
 import express from 'express';
-import path from 'path';
-import authRouter from '../server/routes/authRoutes';
-import bookingRouter from '../server/routes/bookingRoutes';
-import adminRouter from '../server/routes/adminRoutes';
+import authRouter from '../server/routes/authRoutes.js';
+import bookingRouter from '../server/routes/bookingRoutes.js';
+import adminRouter from '../server/routes/adminRoutes.js';
 
 const app = express();
 
@@ -12,7 +11,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/auth', authRouter);
 app.use('/api/bookings', bookingRouter);
 app.use('/api/admin', adminRouter);
-
 
 app.get('/api/health', (_req, res) => {
   res.json({

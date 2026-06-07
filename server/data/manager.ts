@@ -1,7 +1,7 @@
 import path from 'path';
 import crypto from 'crypto';
-import { Customer, Booking, SecurityLog, PaymentProof, Receipt } from '../../src/types';
-import { supabase, supabaseAdmin } from '../lib/supabaseClient';
+import { Customer, Booking, SecurityLog, PaymentProof, Receipt } from '../../src/types.js';
+import { supabase, supabaseAdmin } from '../lib/supabaseClient.js';
 
 export const UPLOADS_DIR = path.join(process.cwd(), 'data', 'uploads');
 

@@ -1,6 +1,6 @@
-import { supabase } from '../lib/supabaseClient';
-import { DB } from '../data/manager';
-import { Customer } from '../../src/types';
+import { supabase } from '../lib/supabaseClient.js';
+import { DB } from '../data/manager.js';
+import { Customer } from '../../src/types.js';
 
 export async function getCustomerFromToken(authHeader: string | undefined): Promise<Customer | null> {
   if (!authHeader) return null;

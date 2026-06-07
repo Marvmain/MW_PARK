@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import { Booking, Receipt } from '../../src/types';
-import { DB, uploadPaymentProofToStorage } from '../data/manager';
+import { Booking, Receipt } from '../../src/types.js';
+import { DB, uploadPaymentProofToStorage } from '../data/manager.js';
 
 export const AdminController = {
   async getAllBookings(req: Request, res: Response): Promise<void> {

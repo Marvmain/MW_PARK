@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
-import { supabase } from '../lib/supabaseClient'
-import { DB } from '../data/manager';
-import { getCustomerFromToken } from '../lib/auth';
-import { authenticateAdmin, signAdminToken, verifyAdminToken } from '../lib/adminAuth';
-import { Customer } from '../../src/types';
-
+import { supabase } from '../lib/supabaseClient.js';
+import { DB } from '../data/manager.js';
+import { getCustomerFromToken } from '../lib/auth.js';
+import { authenticateAdmin, signAdminToken, verifyAdminToken } from '../lib/adminAuth.js';
+import { Customer } from '../../src/types.js';
 export const AuthController = {
   /**
    * Register a new customer via Supabase Auth + customers profile table

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { AdminRole } from '../../src/types';
+import { AdminRole } from '../../src/types.js';
 
 const TOKEN_SECRET = process.env.ADMIN_TOKEN_SECRET || process.env.HASH_SECRET || 'mw-adventure-park-secret-salt-2026';
 const TOKEN_TTL_MS = 8 * 60 * 60 * 1000;

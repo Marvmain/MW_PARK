@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import { DB, uploadPaymentProofToStorage } from '../data/manager';
-import { Booking, PaymentProof, CartItem } from '../../src/types';
-import { ACTIVITIES_DATA } from '../../src/activitiesData';
+import { DB, uploadPaymentProofToStorage } from '../data/manager.js';
+import { Booking, PaymentProof, CartItem } from '../../src/types.js';
+import { ACTIVITIES_DATA } from '../../src/activitiesData.js';
 
 const PRICING = Object.fromEntries(
   ACTIVITIES_DATA.map((activity) => [

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { Customer, AdminRole } from '../../src/types';
-import { getCustomerFromToken } from './auth';
-import { verifyAdminToken, AdminSession } from './adminAuth';
+import { Customer, AdminRole } from '../../src/types.js';
+import { getCustomerFromToken } from './auth.js';
+import { verifyAdminToken, AdminSession } from './adminAuth.js';
 
 declare global {
   namespace Express {
