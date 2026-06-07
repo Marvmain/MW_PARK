@@ -15,7 +15,7 @@ export interface Customer {
   fullName: string;
   email: string;
   phone: string;
-  dob: string; // Date of birth for age restriction verification (crucial for river activities)
+  dob: string;
   address: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
@@ -38,9 +38,18 @@ export type ActivityName =
   | 'Life Vest Rent'
   | 'Spider Web';
 
+/** A single line item in a cart booking */
+export interface CartItem {
+  activityName: ActivityName;
+  primaryQty: number;   // "small kawa" count or "adults" count or "per head" etc.
+  secondaryQty: number; // "big kawa" count or "children" count etc.
+  lineTotal: number;
+}
+
 export interface Booking {
   id: string;
   customerId: string;
+  // Legacy single-activity fields (kept for backward-compat with existing DB rows)
   activityName: ActivityName;
   cottageName?: 'Riverfront Canopy Cabana' | 'Dumagat Stilt Lodge' | 'Forest Canopy Treehouse' | 'Pandan Bamboo Shelter' | 'None';
   bookingDate: string;
@@ -49,25 +58,27 @@ export interface Booking {
   numberOfChildren: number;
   totalAmount: number;
   paymentStatus: 'Pending' | 'Pending Verification' | 'Paid' | 'Cancelled' | 'Rejected';
-  bookingStatus?: 'Pending' | 'Confirmed' | 'Rejected'; // Live status for validation state
+  bookingStatus?: 'Pending' | 'Confirmed' | 'Rejected';
   paymentMethod?: 'GCash' | 'Maya';
-  qrCodeToken: string; // Dynamic token for ticket validation
+  qrCodeToken: string;
   createdAt: string;
+  // New multi-activity cart fields
+  cartItems?: CartItem[];
 }
 
 export interface PaymentProof {
-  id: string; // unique payment reference number (PAY-XXXXXX)
+  id: string;
   bookingId: string;
   customerId: string;
   amountPaid: number;
-  proofFileName: string; // Supabase Storage public URL or legacy local uploads path
+  proofFileName: string;
   uploadedAt: string;
   status: 'Pending' | 'Approved' | 'Rejected';
   adminRemarks?: string;
 }
 
 export interface Receipt {
-  id: string; // unique receipt number (REC-XXXXXX)
+  id: string;
   paymentId: string;
   bookingId: string;
   amountPaid: number;
@@ -125,5 +136,3 @@ export interface Cottage {
   stiltHeight: string;
   disabled?: boolean;
 }
-
-

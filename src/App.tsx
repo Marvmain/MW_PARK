@@ -30,6 +30,7 @@ import { loadActivitiesFromStorage, formatActivityPriceSummary, getPrimaryGuestL
 import CottagesCatalog from './components/CottagesCatalog';
 import CottageDetailModal from './components/CottageDetailModal';
 import { Home, Leaf } from 'lucide-react';
+import BookingPanel from './components/BookingPanel';
 
 export default function App() {
   // Dynamic Activities and Cottages Catalog States
@@ -785,7 +786,7 @@ export default function App() {
             {/* Quick Greeting & Park News Banner */}
             <div className="relative overflow-hidden bg-[#1B3022] p-6 text-white md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div className="z-10 space-y-2">
-                <span className="text-[10px] uppercase tracking-[0.3em] text-[#E8E5DA] opacity-80">Online Customer Interface</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-[#E8E5DA] opacity-80">Online Guest</span>
                 <h3 className="font-serif text-3xl md:text-4xl tracking-tight">
                   Hello, {customer.fullName}!
                 </h3>
@@ -979,187 +980,43 @@ export default function App() {
               ) : (
                 <>
                   {/* COLUMN 2: Interactive River Booking Form & Rate Calculator (Width: 4/12) */}
-              <div className="lg:col-span-4 space-y-6">
-                <div className="border border-[#1B3022]/10 bg-white p-6 space-y-6">
-                  
-                  <div>
-                    <h3 className="font-serif text-xl text-[#1B3022] border-b border-[#1B3022]/10 pb-2">
-                      New River Reservation
-                    </h3>
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      Choose an adventure package. Pricing is automatically computed in PHP with municipal ecological fees.
-                    </p>
+                  <div className="lg:col-span-4">
+                    <BookingPanel
+                      activitiesList={activitiesList}
+                      cottagesList={cottagesList}
+                      isSubmitting={isSubmittingBooking}
+                      onBrowseCottages={() => setDashboardTab('cottages')}
+                      onSubmit={async (payload) => {
+                        setIsSubmittingBooking(true);
+                        try {
+                          const res = await fetch('/api/bookings', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify(payload),
+                          });
+
+                          const data = await res.json();
+
+                          if (res.ok) {
+                            showMsg(data.message, 'success');
+                            fetchBookings(token!);
+                          } else {
+                            showMsg(data.error || 'Failed to submit reservation.', 'error');
+                          }
+                        } catch {
+                          showMsg(
+                            'Failed to record reservation. Check network service logs.',
+                            'error'
+                          );
+                        } finally {
+                          setIsSubmittingBooking(false);
+                        }
+                      }}
+                    />
                   </div>
-
-                  <form onSubmit={handleBookingSubmit} className="space-y-4">
-                    
-                    {/* Activity Selection */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase font-semibold text-gray-500 block">Select Activity</label>
-                      <select 
-                        value={selectedActivity}
-                        onChange={(e) => setSelectedActivity(e.target.value as ActivityName)}
-                        className="w-full rounded border border-[#1B3022]/20 bg-transparent px-3 py-2 text-xs focus:ring-1 focus:ring-[#A67C52] focus:outline-none focus:border-[#A67C52]"
-                      >
-                        {activitiesList.filter((act) => !act.disabled).map((act) => (
-                          <option key={act.id} value={act.name}>
-                            {act.name} ({formatActivityPriceSummary(act)})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Cottage Reservation (Optional Add-on) */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <label className="text-[10px] uppercase font-semibold text-gray-500 block">Select Cottage (Optional)</label>
-                        <button
-                          type="button"
-                          onClick={() => setDashboardTab('cottages')}
-                          className="text-[9px] text-[#A67C52] hover:underline font-bold focus:outline-none"
-                        >
-                          Browse Specs
-                        </button>
-                      </div>
-                      <select 
-                        value={selectedCottage}
-                        onChange={(e: any) => setSelectedCottage(e.target.value)}
-                        className="w-full rounded border border-[#1B3022]/20 bg-transparent px-3 py-2 text-xs focus:ring-1 focus:ring-[#A67C52] focus:outline-none focus:border-[#A67C52]"
-                      >
-                        <option value="None">None (No Cottage Rental)</option>
-                        <option value="Riverfront Canopy Cabana">Riverfront Canopy Cabana (+₱1,500 / Day)</option>
-                        <option value="Dumagat Stilt Lodge">Dumagat Stilt Lodge (+₱2,800 / Day)</option>
-                        <option value="Forest Canopy Treehouse">Forest Canopy Treehouse (+₱2,000 / Day)</option>
-                        <option value="Pandan Bamboo Shelter">Pandan Bamboo Shelter (+₱800 / Day)</option>
-                      </select>
-                    </div>
-
-                    {/* Schedule Date field with min limit constraints */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase font-semibold text-gray-500 block">Select Booking Date</label>
-                      <input 
-                        type="date" 
-                        required 
-                        value={bookingDate}
-                        onChange={(e) => setBookingDate(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="w-full rounded border border-[#1B3022]/20 bg-transparent px-3 py-1.5 text-xs focus:ring-1 focus:ring-[#A67C52] focus:outline-none focus:border-[#1B3022]"
-                      />
-                    </div>
-
-                    {/* Schedule slots */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase font-semibold text-gray-500 block">Time Slot</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(['08:00 AM', '10:30 AM', '01:30 PM', '04:00 PM'] as const).map((slot) => (
-                          <button
-                            key={slot}
-                            type="button"
-                            onClick={() => setScheduleTime(slot)}
-                            className={`px-2 py-1.5 text-[10px] font-semibold border rounded transition-all text-center ${
-                              scheduleTime === slot 
-                                ? 'bg-[#1B3022] text-white border-[#1B3022]' 
-                                : 'bg-transparent text-gray-600 border-[#1B3022]/10 hover:bg-[#1B3022]/5'
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Guest count controls */}
-                    <div className="grid grid-cols-2 gap-4 pt-1">
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-semibold text-gray-500 block">{getPrimaryGuestLabel(activeActivityObject)}</label>
-                        <div className="flex items-center space-x-2">
-                          <button 
-                            type="button"
-                            onClick={() => setNumberOfAdults(Math.max(1, numberOfAdults - 1))}
-                            className="h-7 w-7 rounded border border-[#1B3022]/20 text-xs font-bold hover:bg-[#1B3022]/5 flex items-center justify-center"
-                          >
-                            -
-                          </button>
-                          <span className="text-xs font-bold w-4 text-center">{numberOfAdults}</span>
-                          <button 
-                            type="button"
-                            onClick={() => setNumberOfAdults(numberOfAdults + 1)}
-                            className="h-7 w-7 rounded border border-[#1B3022]/20 text-xs font-bold hover:bg-[#1B3022]/5 flex items-center justify-center"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <span className="text-[9px] text-[#A67C52] block mt-0.5">₱{rates.adultRate} each</span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-semibold text-gray-500 block">{getSecondaryGuestLabel(activeActivityObject)}</label>
-                        <div className="flex items-center space-x-2">
-                          <button 
-                            type="button"
-                            onClick={() => setNumberOfChildren(Math.max(0, numberOfChildren - 1))}
-                            className="h-7 w-7 rounded border border-[#1B3022]/20 text-xs font-bold hover:bg-[#1B3022]/5 flex items-center justify-center"
-                          >
-                            -
-                          </button>
-                          <span className="text-xs font-bold w-4 text-center">{numberOfChildren}</span>
-                          <button 
-                            type="button"
-                            onClick={() => setNumberOfChildren(numberOfChildren + 1)}
-                            className="h-7 w-7 rounded border border-[#1B3022]/20 text-xs font-bold hover:bg-[#1B3022]/5 flex items-center justify-center"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <span className="text-[9px] text-[#A67C52] block mt-0.5">₱{rates.childRate} each</span>
-                      </div>
-                    </div>
-
-                    {/* Integrated dynamic breakdown card */}
-                    <div className="bg-[#FAF9F6] p-3 border border-dashed border-[#1B3022]/20 mt-4 space-y-2">
-                      <span className="text-[9px] uppercase tracking-wide text-gray-400 font-bold block">Cost Breakdown (Philippine Pesos)</span>
-                      
-                      <div className="flex justify-between text-xs text-gray-600">
-                        <span>{getPrimaryGuestLabel(activeActivityObject)} x{numberOfAdults}</span>
-                        <span>₱{numberOfAdults * rates.adultRate}</span>
-                      </div>
-                      
-                      {numberOfChildren > 0 && (
-                        <div className="flex justify-between text-xs text-gray-600">
-                          <span>{getSecondaryGuestLabel(activeActivityObject)} x{numberOfChildren}</span>
-                          <span>₱{numberOfChildren * rates.childRate}</span>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between text-xs font-semibold text-gray-600">
-                        <span>Heritage Eco Tax</span>
-                        <span className="text-emerald-700">INCLUDED</span>
-                      </div>
-
-                      <div className="border-t border-[#1B3022]/10 pt-2 flex justify-between text-sm font-bold text-[#1B3022]">
-                        <span>Grand Total:</span>
-                        <span className="text-base text-[#1B3022] font-serif">₱{calculatedTotal.toLocaleString()}</span>
-                      </div>
-                    </div>
-
-                    <button 
-                      type="submit"
-                      disabled={isSubmittingBooking}
-                      className="w-full bg-[#1B3022] hover:bg-[#2A4533] text-white py-3 text-xs uppercase tracking-wider font-bold transition-all mt-4 flex items-center justify-center space-x-2"
-                    >
-                      {isSubmittingBooking ? (
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                      ) : (
-                        <>
-                          <span>Establish Pending Reserve</span>
-                          <ArrowRight className="h-4 w-4" />
-                        </>
-                      )}
-                    </button>
-                    
-                  </form>
-                </div>
-              </div>
 
               {/* COLUMN 3: Active Bookings, PayMongo Gateways, and QR E-tickets (Width: 5/12) */}
               <div className="lg:col-span-5 space-y-6">
@@ -1168,11 +1025,8 @@ export default function App() {
                   <div className="flex items-center justify-between border-b border-[#1B3022]/10 pb-2">
                     <div>
                       <h4 className="font-serif text-xl text-[#1B3022]">
-                        Itineraries & QR Tickets
+                         Payments
                       </h4>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        Your registered adventure permits and verification barcodes.
-                      </p>
                     </div>
                     <span className="inline-block font-mono text-[10px] bg-slate-100 rounded-full py-0.5 px-2 font-bold text-gray-600">
                       LIVE NODES
@@ -1224,9 +1078,29 @@ export default function App() {
                             </div>
 
                             {/* Details layout */}
-                            <div className="font-serif text-base font-bold text-[#1B3022] mb-0.5">
-                              {item.activityName}
-                            </div>
+                            {item.cartItems && item.cartItems.length > 0 ? (
+                              <div className="space-y-0.5 mb-1">
+                                {item.cartItems.map((ci, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center justify-between text-xs"
+                                  >
+                                    <span className="font-serif font-bold text-[#1B3022]">
+                                      {ci.activityName}
+                                    </span>
+                                    <span className="font-mono text-[10px] text-gray-500">
+                                      {ci.primaryQty > 0 && `${ci.primaryQty}×P`}
+                                      {ci.secondaryQty > 0 && ` ${ci.secondaryQty}×S`}
+                                      {' '}— ₱{ci.lineTotal.toLocaleString()}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="font-serif text-base font-bold text-[#1B3022] mb-0.5">
+                                {item.activityName}
+                              </div>
+                            )}
                             {item.cottageName && item.cottageName !== 'None' && (
                               <div className="text-[10px] font-bold text-[#A67C52] font-mono uppercase tracking-wider mb-2 flex items-center gap-1">
                                 <span>⛺ Cottage Add-on: {item.cottageName}</span>
