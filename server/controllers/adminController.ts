@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import { DB } from '../data/manager';
 import { Booking, Receipt } from '../../src/types';
+import { DB, uploadPaymentProofToStorage } from '../data/manager';
 
 export const AdminController = {
   async getAllBookings(req: Request, res: Response): Promise<void> {
@@ -235,23 +234,46 @@ export const AdminController = {
 
     try {
       const base64Parts = qrImageBase64.split(';base64,');
-      const buffer = Buffer.from(base64Parts.length > 1 ? base64Parts[1] : base64Parts[0], 'base64');
-      const filePath = path.join(process.cwd(), 'data', 'uploads', 'admin_gcash_qr.png');
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      fs.writeFileSync(filePath, buffer);
+      const mimeString = base64Parts.length > 1 ? base64Parts[0].split(':')[1] : 'image/png';
+      const base64String = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
+      const buffer = Buffer.from(base64String, 'base64');
+      const ext = mimeString === 'image/png' ? 'png' : 'jpg';
+      const contentType = mimeString || 'image/png';
+
+      // Re-use the same Supabase Storage helper used for payment proofs
+      const storagePath = `admin/gcash_qr.${ext}`;
+      const publicUrl = await uploadPaymentProofToStorage(buffer, storagePath, contentType);
 
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
       await DB.logAdminAction(req.admin?.username || 'unknown', 'Updated GCash QR code', ip, true);
 
-      res.json({ success: true, message: 'GCash QR updated!', url: '/uploads/admin_gcash_qr.png' });
+      res.json({ success: true, message: 'GCash QR updated!', url: publicUrl });
     } catch (e: any) {
       res.status(500).json({ error: 'Upload failed: ' + e.message });
     }
   },
 
   async getGcashQr(req: Request, res: Response): Promise<void> {
-    const filePath = path.join(process.cwd(), 'data', 'uploads', 'admin_gcash_qr.png');
-    const exists = fs.existsSync(filePath);
-    res.json({ success: true, hasCustomQr: exists, url: exists ? '/uploads/admin_gcash_qr.png' : null });
+    try {
+      // Try both png and jpg since admin may have uploaded either
+      const { supabaseAdmin } = await import('../../src/lib/supabaseClient');
+      const BUCKET = process.env.SUPABASE_PAYMENT_PROOFS_BUCKET || 'payment-proofs';
+
+      const candidates = ['admin/gcash_qr.png', 'admin/gcash_qr.jpg'];
+      let publicUrl: string | null = null;
+
+      for (const path of candidates) {
+        const { data } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
+        // Verify the file actually exists by checking it returns a usable URL
+        const check = await fetch(data.publicUrl, { method: 'HEAD' }).catch(() => null);
+        if (check && check.ok) {
+          publicUrl = data.publicUrl;
+          break;
+        }
+      }
+
+      res.json({ success: true, hasCustomQr: !!publicUrl, url: publicUrl });
+    } catch (e: any) {
+      res.json({ success: true, hasCustomQr: false, url: null });
+    }
   },
-};
