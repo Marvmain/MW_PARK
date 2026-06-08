@@ -84,7 +84,7 @@ export const COTTAGES_DATA: Cottage[] = [
     longDescription: 'The Arko is MW Adventure Park\'s premier covered pavilion, designed for large events, corporate outings, birthday parties, and reunions. With ample covered floor space, the Arko can accommodate large groups comfortably. Its open-sided design keeps it naturally ventilated while providing full overhead protection from the sun and rain, making it the ideal venue for any riverside gathering. Tables and seating arrangements can be coordinated with park staff.',
     capacity: 'Up to 50 Guests',
     ratePerDay: 1000,
-    image: '',
+    image: 'https://lens.usercontent.google.com/image?vsrid=CMyNsZ29itTg8wEQAhgBIiQ4MWM1YjA3ZC0zNjYxLTQzODUtODg4OS1iNjBiZjdkZjAxZTEyeyICc2QoB0JzCi5sZmUtZHVtbXk6ZTEzODA3ODAtMTFkNi00Nzk1LTllNWUtOTEwNzFkMDBlNmE5EkEKPy9ibnMvc2QvYm9yZy9zZC9ibnMvbGVucy1mcm9udGVuZC1hcGkvcHJvZC5sZW5zLWZyb250ZW5kLWFwaS8yODjSmKzJsveUAw&gsessionid=miYuwMiYDFvdHub1Vz0aHa783P3YCYrK43jXE7G81jUlWydOGalOcQ',
     amenities: [
       'Large covered pavilion with full overhead rain and sun protection',
       'Open-sided design for natural river breeze ventilation',
