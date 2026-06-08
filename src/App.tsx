@@ -553,8 +553,8 @@ export default function App() {
                   </h3>
                   <p className="mt-1 text-xs text-gray-500">
                     {authTab === 'login' 
-                      ? 'Access your saved itineraries, waivers, and QR code tickets.' 
-                      : 'Register your details to enable quick check-in and river access privileges.'}
+                      ? '' 
+                      : ''}
                   </p>
 
                   <div className="mt-6 flex gap-6 text-xs uppercase tracking-widest font-semibold border-b border-[#1B3022]/10 pb-2">
