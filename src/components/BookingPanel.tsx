@@ -235,7 +235,7 @@ export default function BookingPanel({
             className="w-full flex items-center justify-center gap-2 bg-[#1B3022] hover:bg-[#A67C52] disabled:opacity-40 text-white py-2 text-[10px] uppercase tracking-wider font-bold rounded transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add to Cart
+            Add Activities
           </button>
         </div>
 

@@ -418,7 +418,7 @@ export default function BookingModal({
           {!submitted && step === 1 && (
             <div className="bm-step">
               <p style={{ fontSize: 11, color: '#999', lineHeight: 1.7, marginBottom: 14 }}>
-                Pick one or more river activities, set guest counts, then click <strong style={{ color: '#1B3022' }}>Add to Cart</strong>.
+                Pick one or more river activities, set guest counts, then click <strong style={{ color: '#1B3022' }}>Add Activities</strong>.
               </p>
 
               {/* Picker box */}
