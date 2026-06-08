@@ -474,7 +474,7 @@ export default function BookingModal({
                   onClick={addToCart}
                   disabled={!pickerAct || (pickerPrimary <= 0 && pickerSecondary <= 0)}
                 >
-                  <Plus size={13} /> Add to Cart
+                  <Plus size={13} /> Add Activities
                 </button>
               </div>
 
