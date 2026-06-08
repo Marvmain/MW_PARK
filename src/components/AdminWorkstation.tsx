@@ -1784,10 +1784,6 @@ export default function AdminWorkstation({
               </div>
             </div>
 
-            <div className="text-[10px] text-gray-500 font-light leading-relaxed bg-[#FAF9F6] p-3 border border-stone-100 rounded">
-              ⚠️ <strong>MUNICIPAL WILDLIFE WAIVER STATUS:</strong> Registrant {selectedBookingForReview.customer.fullName} has agreed to follow Antique forest warnings, wear mandatory life jackets, pack out all plastic, and limit stilt cabin utilization to designated channels.
-            </div>
-
             <div className="border-t border-[#1B3022]/20 pt-4 flex justify-between items-center gap-2 flex-wrap sm:flex-nowrap">
               <div className="flex gap-1.5 w-full sm:w-auto">
                 {selectedBookingForReview.paymentStatus !== 'Paid' && (
