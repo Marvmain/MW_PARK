@@ -950,10 +950,7 @@ export default function App() {
                 <div className="lg:col-span-9 space-y-6">
                   <div className="border border-[#1B3022]/10 bg-white p-6 space-y-4">
                     <div className="border-b border-[#1B3022]/10 pb-3">
-                      <h3 className="font-serif text-xl text-[#1B3022]">Pandan River Adventure Packages</h3>
-                      <p className="text-xs text-gray-500">
-                        Explore our world-class guided river itineraries. Select any activity to inspect municipal safety guidelines, rate metrics, and equipment profiles.
-                      </p>
+                      <h3 className="font-serif text-xl text-[#1B3022]">Dumagat Pandan River </h3>
                     </div>
                     <ActivitiesCatalog
                       onSelectActivity={setSelectedCatalogActivity}
@@ -970,10 +967,7 @@ export default function App() {
                 <div className="lg:col-span-9 space-y-6">
                   <div className="border border-[#1B3022]/10 bg-white p-6 space-y-4">
                     <div className="border-b border-[#1B3022]/10 pb-3">
-                      <h3 className="font-serif text-xl text-[#1B3022]">Pandan Riverside Stilt Cottages</h3>
-                      <p className="text-xs text-gray-500">
-                        Browse our award-winning bio-diverse eco-lodges and over-the-water stilt cabanas. Select speculative designs to inspect architectural frameworks, stilt elevations, and amenities.
-                      </p>
+                      <h3 className="font-serif text-xl text-[#1B3022]"> Dumagat River</h3>
                     </div>
                     <CottagesCatalog
                       onSelectCottage={setSelectedCatalogCottage}
@@ -1039,7 +1033,7 @@ export default function App() {
                             {/* Header Badge */}
                             <div className="flex items-start justify-between gap-2 mb-3">
                               <div>
-                                <span className="font-mono text-[10px] text-gray-400 uppercase tracking-widest block">ITINERARY ID</span>
+                                <span className="font-mono text-[10px] text-gray-400 uppercase tracking-widest block">Booking  ID</span>
                                 <span className="font-mono font-bold text-xs text-[#1B3022]">{item.id}</span>
                               </div>
                               <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
