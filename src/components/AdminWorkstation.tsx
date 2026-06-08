@@ -764,7 +764,6 @@ export default function AdminWorkstation({
     { id: 'bookings' as const, name: 'Bookings', count: bookings.length, icon: Calendar, roles: ['super', 'staff'] },
     { id: 'payments' as const, name: 'Payments', count: payments.filter(p => p.status === 'Pending').length, icon: CreditCard, roles: ['super'] },
     { id: 'catalogs' as const, name: 'Activities', icon: Compass, roles: ['super', 'staff'] },
-    { id: 'customers' as const, name: 'Cottages', count: uniqueCustomers.length, icon: Users, roles: ['super'] },
     { id: 'logs' as const, name: 'Logs', count: logs.length, icon: ShieldAlert, roles: ['super'] },
   ];
 
@@ -1040,13 +1039,6 @@ export default function AdminWorkstation({
                             </td>
                             <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
                               
-                              <button
-                                onClick={() => setSelectedBookingForReview(b)}
-                                className="px-2 py-1 bg-stone-100 hover:bg-[#1B3022] hover:text-[#FAF9F6] text-[10px] font-bold uppercase rounded transition-colors cursor-pointer"
-                                title="Inspect permit waiver specification sheet"
-                              >
-                                Permit Spec
-                              </button>
 
                               {b.paymentStatus !== 'Paid' && (
                                 <button
@@ -1421,8 +1413,6 @@ export default function AdminWorkstation({
 
             </div>
           )}
-
-         
 
           {/* TAB 6: SECURITY INCIDENTS & ACTIONS AUDIT LOGS */}
           {activeSubTab === 'logs' && (
