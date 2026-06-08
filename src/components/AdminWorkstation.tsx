@@ -777,9 +777,6 @@ export default function AdminWorkstation({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#1B3022]/10 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-[0.3em] font-extrabold text-[#A67C52] block">
-              Admin Control Panel • Dumagat River Node
-            </span>
             <span className={`text-[9px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded border ${
               adminRole === 'super' 
                 ? 'bg-emerald-50 text-emerald-850 border-emerald-300' 
