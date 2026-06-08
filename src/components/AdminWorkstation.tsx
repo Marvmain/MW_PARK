@@ -702,13 +702,7 @@ export default function AdminWorkstation({
             <div className="h-12 w-12 bg-[#1B3022]/10 text-[#1B3022] rounded-full mx-auto flex items-center justify-center">
               <Lock className="h-6 w-6 text-[#A67C52]" />
             </div>
-            <span className="text-[10px] uppercase tracking-[0.25em] font-extrabold text-[#A67C52] block">
-              Municipal Riverway Ingress Node
-            </span>
-            <h3 className="font-serif text-2xl font-bold text-[#1B3022]">Administrative Entrance</h3>
-            <p className="text-[11px] text-gray-400">
-              Supply administrative username and security tokens to coordinate ecoforest checklists.
-            </p>
+            <h3 className="font-serif text-2xl font-bold text-[#1B3022]">Admin Login</h3>
           </div>
 
           <div className="space-y-4">
