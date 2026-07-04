@@ -1,3 +1,4 @@
+/// <reference types="react" />
 import React, { useState, useEffect } from 'react';
 import { 
   Anchor, 
@@ -24,6 +25,14 @@ import {
   Calendar
 } from 'lucide-react';
 import { Customer, Booking, Activity, Cottage, ActivityName } from './types';
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
 import ActivitiesCatalog from './components/ActivitiesCatalog';
 import ActivityDetailModal from './components/ActivityDetailModal';
 import { COTTAGES_DATA } from './cottagesData';
@@ -34,7 +43,7 @@ import { Home, Leaf } from 'lucide-react';
 import BookingModal from './components/BookingModal';
 import QRTicket from './components/QRTicket';
 
-export default function App() {
+export default function App(): React.ReactElement {
   // Dynamic Activities and Cottages Catalog States
   const [activitiesList, setActivitiesList] = useState<Activity[]>(loadActivitiesFromStorage);
 
@@ -67,17 +76,9 @@ export default function App() {
 
 // booking modal
   const [showBookingModal, setShowBookingModal] = useState(false);
-  // Authentication Switch: 'login' | 'register'
-  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
-
-  // Input States for Login
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-
-  // Input States for Registration
+  // Input States for Guest Check-In Registration
   const [regFullName, setRegFullName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regDob, setRegDob] = useState('');
   const [regAddress, setRegAddress] = useState('');
@@ -91,7 +92,7 @@ export default function App() {
   
   // Dynamic Booking Form States
   const [selectedActivity, setSelectedActivity] = useState<ActivityName>('Kawa Spa');
-  const [selectedCottage, setSelectedCottage] = useState<'Riverfront Canopy Cabana' | 'Dumagat Stilt Lodge' | 'Forest Canopy Treehouse' | 'Pandan Bamboo Shelter' | 'None'>('None');
+  const [selectedCottage, setSelectedCottage] = useState<string | null>(null);
   const [bookingDate, setBookingDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState<'08:00 AM' | '10:30 AM' | '01:30 PM' | '04:00 PM'>('08:00 AM');
   const [numberOfAdults, setNumberOfAdults] = useState(1);
@@ -111,8 +112,8 @@ export default function App() {
 
 
   // Calculated Price in Real-time dynamically resolved from state
-  const activeActivityObject = activitiesList.find(a => a.name === selectedActivity);
-  const activeCottageObject = cottagesList.find(c => c.name === selectedCottage);
+  const activeActivityObject = activitiesList.find((a: Activity) => a.name === selectedActivity);
+  const activeCottageObject = selectedCottage ? cottagesList.find((c: Cottage) => c.name === selectedCottage) : null;
 
   const rates = activeActivityObject || { adultRate: 350, childRate: 175 };
 
@@ -188,40 +189,9 @@ export default function App() {
     }
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loginEmail || !loginPassword) {
-      showMsg('Please complete both email and password input fields.', 'error');
-      return;
-    }
-
-    setIsAuthenticating(true);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        localStorage.setItem('mw_session_token', data.token);
-        setToken(data.token);
-        setCustomer(data.customer);
-        showMsg(data.message, 'success');
-        fetchBookings(data.token);
-      } else {
-        showMsg(data.error || 'Authentication failed.', 'error');
-      }
-    } catch (err) {
-      showMsg('Unable to reach secure authentication servers.', 'error');
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regFullName || !regEmail || !regPassword || !regPhone || !regDob || !regAddress || !regEmergencyName || !regEmergencyPhone) {
+    if (!regFullName || !regEmail || !regPhone || !regDob || !regAddress || !regEmergencyName || !regEmergencyPhone) {
       showMsg('Please complete all required fields.', 'error');
       return;
     }
@@ -234,7 +204,6 @@ export default function App() {
         body: JSON.stringify({
           fullName: regFullName,
           email: regEmail,
-          password: regPassword,
           phone: regPhone,
           dob: regDob,
           address: regAddress,
@@ -245,17 +214,17 @@ export default function App() {
       });
 
       const data = await res.json();
-      if (res.ok) {
-        showMsg(data.message, 'success');
-        // Auto sign-in or shift to login tab with pre-filled fields
-        setAuthTab('login');
-        setLoginEmail(regEmail);
-        setLoginPassword(regPassword);
+      if (res.ok && data.token && data.customer) {
+        localStorage.setItem('mw_session_token', data.token);
+        setToken(data.token);
+        setCustomer(data.customer);
+        showMsg(data.message || 'Guest check-in successful!', 'success');
+        fetchBookings(data.token);
       } else {
-        showMsg(data.error || 'Registration failed.', 'error');
+        showMsg(data.error || 'Check-in failed.', 'error');
       }
     } catch (err) {
-      showMsg('Connection error during registration setup.', 'error');
+      showMsg('Connection error during guest setup.', 'error');
     } finally {
       setIsAuthenticating(false);
     }
@@ -312,7 +281,7 @@ export default function App() {
         fetchBookings(token);
         // Reset form details safely
         setBookingDate('');
-        setSelectedCottage('None');
+        setSelectedCottage(null);
         setNumberOfChildren(0);
         setNumberOfAdults(1);
       } else {
@@ -467,7 +436,7 @@ export default function App() {
                   onClick={handleLogoutAction}
                   className="rounded bg-[#1B3022] px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-white hover:bg-[#2A4533] transition-colors"
                 >
-                  Sign Out
+                  Change Guest
                 </button>
               </div>
             )}
@@ -477,313 +446,6 @@ export default function App() {
 
       {/* Main Container Content */}
       <main className="mx-auto max-w-7xl">
-        {!customer ? (
-          /* ======================================================== */
-          /* AUTHENTICATION VIEW: Elegant Editorial Split Layout       */
-          /* ======================================================== */
-          <div className="flex min-h-[calc(100vh-76px)] flex-col lg:flex-row">
-            
-            {/* Left side: Editorial Brand Magazine showcase */}
-            <aside className="relative flex flex-col justify-between bg-[#1B3022] p-8 text-[#FAF9F6] lg:w-7/12 lg:p-16 overflow-hidden">
-              {/* Background Image with Low Opacity */}
-              <div
-                className="absolute inset-0 bg-cover bg-center opacity-7"
-                style={{
-                  backgroundImage: "url('https://scontent.fcgy2-1.fna.fbcdn.net/v/t39.30808-6/505836933_1038041441801827_2259826248032804033_n.jpg?stp=cp6_dst-jpg_tt6&cstp=mx744x992&ctp=s744x992&_nc_cat=100&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeGl6_gFAaXziOaLDU0rDQoTG7P6wliLm8obs_rCWIubyoG6ZLqh4Ai3ibsYg8yt0is2IOma-1BG2k2c4ETT5YcN&_nc_ohc=IR3hs-0D0pIQ7kNvwFUStgE&_nc_oc=AdoYSSAoNG3YyJJTPyk6iCAeO4nF9sgjndG2HMVrWPCdM91R8s5gINUEWzBHYFG9O8vH5l-RX9frzrHXfEQW7SG4&_nc_zt=23&_nc_ht=scontent.fcgy2-1.fna&_nc_gid=Rulr9rFJ3RnPwHwhXbe1kw&_nc_ss=7b2a8&oh=00_Af-Mu8ZloTT53IKM1AanQkDs2YZg0BPPqOVaAOQEafp_Vg&oe=6A2A026B')",
-                }}
-              />
-              <div className="relative z-10">
-                <span className="text-xs tracking-[0.3em] uppercase opacity-70">Established 2026</span>
-                
-                <h2 className="font-serif text-6xl lg:text-8xl mt-6 leading-[0.9] tracking-tight">
-                  Dumagat<br />
-                  <i className="font-light text-[#E8E5DA]">River</i>
-                </h2>
-
-                <p className="mt-8 text-base font-light leading-relaxed opacity-80 max-w-lg">
-                Experience the beauty and adventure of Pandan, Antique through Dumagat River. Nestled along the crystal-clear waters and breathtaking natural scenery, we offer unforgettable river activities, exciting outdoor experiences, and a relaxing escape into nature. Whether you're looking for adventure, family bonding, or a peaceful getaway, Dumagat River provides a seamless and convenient booking experience to help you create lasting memories.
-                </p>
-
-                {/* Aesthetic list of park adventures - Clickable brochures */}
-                <div className="mt-12 space-y-5 border-l border-[#FAF9F6]/20 pl-6 text-left">
-                  <span className="text-[10px] tracking-widest uppercase text-[#A67C52] font-semibold block mb-2">
-                    ✓ Brochure Catalog (Click to browse specs)
-                  </span>
-                  {activitiesList.map((act, index) => (
-                    <button 
-                      key={act.id}
-                      onClick={() => setSelectedCatalogActivity(act)}
-                      className="text-left w-full block group focus:outline-none focus:ring-1 focus:ring-[#A67C52] rounded p-1 -ml-1 transition-all hover:bg-white/5"
-                    >
-                      <div className="text-xs">
-                        <span className="font-serif italic text-[#A67C52] text-sm font-bold block group-hover:text-white transition-colors">
-                          0{index + 1}. {act.name}
-                        </span>
-                        <span className="opacity-60 group-hover:opacity-100 transition-opacity flex items-center justify-between gap-2 mt-0.5">
-                          <span className="block truncate max-w-[280px] sm:max-w-md md:max-w-lg lg:max-w-[400px]">{act.description}</span>
-                          <ArrowRight className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all text-[#A67C52]" />
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Park Metadata Footer info */}
-              <div className="relative z-10 mt-16 flex flex-wrap items-center gap-8 border-t border-[#FAF9F6]/10 pt-8">
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-widest opacity-50">Location</span>
-                  <span className="text-xs font-semibold">Pandan, Antique, PH</span>
-                </div>
-              </div>
-
-              <div className="absolute right-4 bottom-4 select-none pointer-events-none text-right font-serif opacity-5 text-9xl lg:text-[18rem] leading-none">
-                MW
-              </div>
-            </aside>
-
-            {/* Right side: The Dynamic Forms View */}
-            <main className="flex flex-col justify-center bg-[#FAF9F6] p-8 lg:w-5/12 lg:p-16">
-              <div className="mx-auto w-full max-w-md">
-                
-                {/* Form Navigation Switch */}
-                <div className="mb-10">
-                  <h3 className="font-serif text-3xl tracking-tight text-[#1B3022]">
-                    {authTab === 'login' ? 'Welcome Back' : 'Create Account'}
-                  </h3>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {authTab === 'login' 
-                      ? '' 
-                      : ''}
-                  </p>
-
-                  <div className="mt-6 flex gap-6 text-xs uppercase tracking-widest font-semibold border-b border-[#1B3022]/10 pb-2">
-                    <button 
-                      onClick={() => setAuthTab('login')}
-                      className={`pb-1 transition-all ${
-                        authTab === 'login' 
-                          ? 'text-[#1B3022] border-b-2 border-[#1B3022]' 
-                          : 'text-gray-400 hover:text-[#1B3022]'
-                      }`}
-                    >
-                      Login Profile
-                    </button>
-                    <button 
-                      onClick={() => setAuthTab('register')}
-                      className={`pb-1 transition-all ${
-                        authTab === 'register' 
-                          ? 'text-[#1B3022] border-b-2 border-[#1B3022]' 
-                          : 'text-gray-400 hover:text-[#1B3022]'
-                      }`}
-                    >
-                      New user
-                    </button>
-                  </div>
-                </div>
-
-                {/* LOGIN FORM OBJECT */}
-                {authTab === 'login' ? (
-                  <form onSubmit={handleLoginSubmit} className="space-y-6">
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold block">Email Address</label>
-                      <input 
-                        type="email" 
-                        required 
-                        placeholder="e.g. maria.santos@gmail.com" 
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full py-2 bg-transparent border-b border-[#1B3022]/20 font-light text-sm focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold block">Security Password</label>
-                      <input 
-                        type="password" 
-                        required 
-                        placeholder="••••••••" 
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full py-2 bg-transparent border-b border-[#1B3022]/20 font-light text-sm focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" className="accent-[#1B3022] rounded" />
-                        <span>Remember my credentials</span>
-                      </label>
-                      <a href="#forgot" onClick={(e) => { e.preventDefault(); showMsg('Password assistance feature requires registered email validation. Contact park systems helpdesk.', 'error'); }} className="underline hover:text-[#1B3022]">Forgot secret key?</a>
-                    </div>
-
-                    <button 
-                      type="submit" 
-                      disabled={isAuthenticating}
-                      className="w-full bg-[#1B3022] hover:bg-[#2A4533] text-white py-3.5 text-xs uppercase tracking-[0.2em] font-semibold transition-colors mt-6 shadow-md flex items-center justify-center space-x-2"
-                    >
-                      {isAuthenticating ? (
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                      ) : (
-                        <>
-                          <span>Sign in</span>
-                          <ArrowRight className="h-4 w-4" />
-                        </>
-                      )}
-                    </button>
-                  </form>
-                ) : (
-                  /* REGISTRATION FORM OBJECT */
-                  <form onSubmit={handleRegisterSubmit} className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                    
-                    <div className="bg-emerald-50/50 p-3 border border-[#1B3022]/10 mb-2">
-                      <p className="text-[10px] text-emerald-800 leading-relaxed font-medium">
-                        🛡️ <strong>SECURE WAIVER SYSTEM:</strong> Under Philippine tourist welfare standards, accurate primary details and emergency contacts are vital for Dumagat River safety.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold block">Full Name</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="e.g. Maria Santos" 
-                          value={regFullName}
-                          onChange={(e) => setRegFullName(e.target.value)}
-                          className="w-full py-1.5 bg-transparent border-b border-[#1B3022]/20 font-light text-sm focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold block">Email Address</label>
-                        <input 
-                          type="email" 
-                          required 
-                          placeholder="maria@gmail.com" 
-                          value={regEmail}
-                          onChange={(e) => setRegEmail(e.target.value)}
-                          className="w-full py-1.5 bg-transparent border-b border-[#1B3022]/20 font-light text-sm focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold block">Password</label>
-                        <input 
-                          type="password" 
-                          required 
-                          placeholder="Min 8 chars, 1 uppercase, 1 digit" 
-                          value={regPassword}
-                          onChange={(e) => setRegPassword(e.target.value)}
-                          className="w-full py-1.5 bg-transparent border-b border-[#1B3022]/40 font-light text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold block">Mobile Number (PH)</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="09171234567" 
-                          value={regPhone}
-                          onChange={(e) => setRegPhone(e.target.value)}
-                          className="w-full py-1.5 bg-transparent border-b border-[#1B3022]/20 font-light text-sm focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold block">Date of Birth</label>
-                        <input 
-                          type="date" 
-                          required 
-                          value={regDob}
-                          onChange={(e) => setRegDob(e.target.value)}
-                          className="w-full py-1.5 bg-transparent border-b border-[#1B3022]/20 font-light text-sm focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold block">Residential Address</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="Street, City, Province" 
-                          value={regAddress}
-                          onChange={(e) => setRegAddress(e.target.value)}
-                          className="w-full py-1.5 bg-transparent border-b border-[#1B3022]/20 font-light text-[13px] focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="bg-stone-100/50 p-3 border border-[#1B3022]/10 space-y-3">
-                      <span className="text-[10px] uppercase tracking-widest text-emerald-800 font-bold block">🚨 Emergency contact system</span>
-                      
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <label className="text-[9px] uppercase text-gray-500 block">Contact Full Name</label>
-                          <input 
-                            type="text" 
-                            required 
-                            placeholder="Primary Kin Name" 
-                            value={regEmergencyName}
-                            onChange={(e) => setRegEmergencyName(e.target.value)}
-                            className="w-full py-1 bg-transparent border-b border-[#1B3022]/20 text-xs focus:outline-none focus:border-[#A67C52]"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-[9px] uppercase text-gray-500 block">Kin Mobile (PH)</label>
-                          <input 
-                            type="text" 
-                            required 
-                            placeholder="09179998877" 
-                            value={regEmergencyPhone}
-                            onChange={(e) => setRegEmergencyPhone(e.target.value)}
-                            className="w-full py-1 bg-transparent border-b border-[#1B3022]/20 text-xs focus:outline-none focus:border-[#A67C52]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 mt-2">
-                      <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-gray-600">
-                        <input 
-                          type="checkbox" 
-                          required 
-                          checked={regAcceptTerms}
-                          onChange={(e) => setRegAcceptTerms(e.target.checked)}
-                          className="mt-0.5 accent-[#1B3022] rounded shrink-0" 
-                        />
-                        <span>
-                          I acknowledge that river activities contain inherent risks. I authorize MW Adventure Park to register my details for emergency security protocols and medical verification.
-                        </span>
-                      </label>
-                    </div>
-
-                    <button 
-                      type="submit" 
-                      disabled={isAuthenticating}
-                      className="w-full bg-[#1B3022] hover:bg-[#2A4533] text-white py-3.5 text-xs uppercase tracking-[0.2em] font-semibold transition-colors mt-4 shadow-md flex items-center justify-center"
-                    >
-                      {isAuthenticating ? (
-                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                      ) : (
-                        'Submit Verification & Register'
-                      )}
-                    </button>
-                  </form>
-                )}
-
-              </div>
-            </main>
-          </div>
-        ) : (
-          /* ======================================================== */
-          /* LOGGED IN VIEW: Elegant Magazine Dashboard Grid          */
-          /* ======================================================== */
           <div className="p-4 sm:p-6 lg:p-8 space-y-8 animate-fade-in">
             
             {/* Quick Greeting & Park News Banner */}
@@ -791,7 +453,7 @@ export default function App() {
               <div className="z-10 space-y-2">
                 <span className="text-[10px] uppercase tracking-[0.3em] text-[#E8E5DA] opacity-80">Online Guest</span>
                 <h3 className="font-serif text-3xl md:text-4xl tracking-tight">
-                  Hello, {customer.fullName}!
+                  Hello, {customer ? customer.fullName : 'Guest'}!
                 </h3>
                 <p className="text-xs font-light text-[#FAF9F6] opacity-75 max-w-2xl">
                 Explore and reserve your preferred Dumagat River experiences below. Enjoy a seamless and secure booking process designed for your convenience.
@@ -804,7 +466,7 @@ export default function App() {
                 </div>
                 <div className="bg-[#FAF9F6]/10 p-3 rounded text-center">
                   <span className="block text-xl font-bold font-serif text-[#A67C52]">
-                    ₱{bookings.reduce((sum, b) => b.paymentStatus === 'Paid' ? sum + b.totalAmount : sum, 0).toLocaleString()}
+                    ₱{bookings.reduce((sum: number, b: Booking) => b.paymentStatus === 'Paid' ? sum + b.totalAmount : sum, 0).toLocaleString()}
                   </span>
                   <span className="text-[9px] uppercase tracking-wider text-slate-300">Paid River Activities</span>
                 </div>
@@ -858,7 +520,19 @@ export default function App() {
                 )}
               </button>
               <button
-                  onClick={() => setShowBookingModal(true)}
+                  onClick={() => {
+                    if (customer) {
+                      setShowBookingModal(true);
+                    } else {
+                      showMsg("Please set up your Guest Profile in the left column before booking.", "error");
+                      const formEl = document.getElementById("guest-checkin-sidebar");
+                      if (formEl) {
+                        formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        const firstInput = formEl.querySelector("input");
+                        if (firstInput) (firstInput as HTMLInputElement).focus();
+                      }
+                    }
+                  }}
                   className="ml-auto px-4 py-2 bg-[#1B3022] hover:bg-[#A67C52] text-white rounded-md transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider cursor-pointer"
                 >
                   <PlusCircle className="h-4 w-4" />
@@ -871,78 +545,204 @@ export default function App() {
               
               {/* COLUMN 1: Profile & Emergency Waivers Dashboard (Width: 3/12) */}
               <div className="lg:col-span-3 space-y-6">
-                <div className="border border-[#1B3022]/10 bg-white p-5 space-y-5">
-                  <h4 className="font-serif text-lg border-b border-[#1B3022]/10 pb-2">Verified Profile</h4>
-                  
-                  <div className="space-y-4 text-xs">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase text-gray-400 block font-semibold">Full Name</span>
-                      <span className="font-medium text-[#1B3022] flex items-center gap-1.5">
-                        <User className="h-3 w-3 text-[#A67C52]" />
-                        {customer.fullName}
-                      </span>
-                    </div>
+                {!customer ? (
+                  <div className="border border-[#1B3022]/10 bg-white p-5 space-y-5 rounded-md shadow-xs" id="guest-checkin-sidebar">
+                    <h4 className="font-serif text-lg border-b border-[#1B3022]/10 pb-2 text-[#1B3022]">Guest Check-In</h4>
+                    <p className="text-[10px] text-gray-500 leading-relaxed">
+                      Complete your visitor info to browse & book. Philippine river safety guidelines require accurate names and emergency contact links. No password needed.
+                    </p>
+                    <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Full Name</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Maria Santos"
+                          value={regFullName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegFullName(e.target.value)}
+                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
+                        />
+                      </div>
 
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase text-gray-400 block font-semibold">Secure Identifiers</span>
-                      <span className="font-mono text-gray-600 block text-[10px] truncate" title={customer.id}>
-                        UID: {customer.id.substring(0, 18)}...
-                      </span>
-                    </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Email Address</label>
+                        <input
+                          type="email"
+                          required
+                          placeholder="maria.santos@gmail.com"
+                          value={regEmail}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmail(e.target.value)}
+                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
+                        />
+                      </div>
 
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase text-gray-400 block font-semibold">Contact Email</span>
-                      <span className="text-gray-700">{customer.email}</span>
-                    </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Mobile Number (PH)</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 09171234567"
+                          value={regPhone}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPhone(e.target.value)}
+                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
+                        />
+                      </div>
 
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase text-gray-400 block font-semibold">Mobile Connection</span>
-                      <span className="text-gray-700 flex items-center gap-1.5">
-                        <Phone className="h-3 w-3 text-[#A67C52]" />
-                        {customer.phone}
-                      </span>
-                    </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Date of Birth</label>
+                        <input
+                          type="date"
+                          required
+                          value={regDob}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegDob(e.target.value)}
+                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
+                        />
+                      </div>
 
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase text-gray-400 block font-semibold">Date Of Birth</span>
-                      <span className="text-gray-700">{new Date(customer.dob).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Residential Address</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Street, City, Province"
+                          value={regAddress}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegAddress(e.target.value)}
+                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
+                        />
+                      </div>
 
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase text-gray-400 block font-semibold">Address Details</span>
-                      <span className="text-gray-700 flex items-start gap-1">
-                        <MapPin className="h-3 w-3 mt-0.5 text-[#A67C52] shrink-0" />
-                        <span>{customer.address}</span>
-                      </span>
-                    </div>
+                      <div className="bg-[#1B3022]/5 p-3 border border-[#1B3022]/10 rounded space-y-2">
+                        <span className="text-[9px] uppercase tracking-widest text-[#1B3022] font-bold block">🚨 Emergency contact</span>
+                        <div className="space-y-2">
+                          <div>
+                            <label className="text-[8px] uppercase text-gray-500 block">Contact Full Name</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Primary Kin Name"
+                              value={regEmergencyName}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmergencyName(e.target.value)}
+                              className="w-full p-1.5 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-[11px] focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] uppercase text-gray-500 block">Kin Mobile (PH)</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="09179998877"
+                              value={regEmergencyPhone}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmergencyPhone(e.target.value)}
+                              className="w-full p-1.5 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-[11px] focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="flex items-start gap-2.5 cursor-pointer text-[10px] leading-relaxed text-gray-600">
+                          <input
+                            type="checkbox"
+                            required
+                            checked={regAcceptTerms}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegAcceptTerms(e.target.checked)}
+                            className="mt-0.5 accent-[#1B3022] rounded shrink-0"
+                          />
+                          <span>
+                            I authorize MW Adventure Park to register my details for safety protocols & river waivers.
+                          </span>
+                        </label>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isAuthenticating}
+                        className="w-full bg-[#1B3022] hover:bg-[#A67C52] text-white py-2.5 text-xs uppercase tracking-[0.2em] font-semibold transition-colors mt-2 shadow-sm flex items-center justify-center cursor-pointer disabled:opacity-60"
+                      >
+                        {isAuthenticating ? (
+                          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                        ) : (
+                          'Check In & Start Booking'
+                        )}
+                      </button>
+                    </form>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="border border-[#1B3022]/10 bg-white p-5 space-y-5">
+                      <h4 className="font-serif text-lg border-b border-[#1B3022]/10 pb-2">Verified Profile</h4>
+                      
+                      <div className="space-y-4 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase text-gray-400 block font-semibold">Full Name</span>
+                          <span className="font-medium text-[#1B3022] flex items-center gap-1.5">
+                            <User className="h-3 w-3 text-[#A67C52]" />
+                            {customer.fullName}
+                          </span>
+                        </div>
 
-                <div className="border border-[#1B3022]/10 bg-[#1B3022]/5 p-5 space-y-4">
-                  <h4 className="font-serif text-lg text-emerald-950 flex items-center gap-2">
-                    <Heart className="h-4.5 w-4.5 text-[#A67C52]" />
-                    <span>Adventure Waiver</span>
-                  </h4>
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase text-gray-400 block font-semibold">Secure Identifiers</span>
+                          <span className="font-mono text-gray-600 block text-[10px] truncate" title={customer.id}>
+                            UID: {customer.id.substring(0, 18)}...
+                          </span>
+                        </div>
 
-                  <p className="text-[11px] text-gray-600 leading-relaxed">
-                    Under executive park protocols, registered emergency data will immediately match response systems if extreme rafting or rescue is activated on high-flow days.
-                  </p>
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase text-gray-400 block font-semibold">Contact Email</span>
+                          <span className="text-gray-700">{customer.email}</span>
+                        </div>
 
-                  <div className="space-y-3 pt-2 text-xs border-t border-[#1B3022]/10">
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] uppercase text-gray-500 font-semibold block">Designated Kin Contact</span>
-                      <span className="font-bold text-[#1B3022]">{customer.emergencyContactName}</span>
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase text-gray-400 block font-semibold">Mobile Connection</span>
+                          <span className="text-gray-700 flex items-center gap-1.5">
+                            <Phone className="h-3 w-3 text-[#A67C52]" />
+                            {customer.phone}
+                          </span>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase text-gray-400 block font-semibold">Date Of Birth</span>
+                          <span className="text-gray-700">{new Date(customer.dob).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] uppercase text-gray-400 block font-semibold">Address Details</span>
+                          <span className="text-gray-700 flex items-start gap-1">
+                            <MapPin className="h-3 w-3 mt-0.5 text-[#A67C52] shrink-0" />
+                            <span>{customer.address}</span>
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] uppercase text-gray-500 font-semibold block">Kin Phone Link</span>
-                      <span className="font-medium text-gray-700">{customer.emergencyContactPhone}</span>
-                    </div>
-                  </div>
 
-                  <div className="rounded bg-emerald-100/50 p-2 text-[10px] text-emerald-900 border border-emerald-200">
-                    <span>✓ Dynamic Active Waiver Agreement verified by client signature.</span>
-                  </div>
-                </div>
+                    <div className="border border-[#1B3022]/10 bg-[#1B3022]/5 p-5 space-y-4">
+                      <h4 className="font-serif text-lg text-emerald-950 flex items-center gap-2">
+                        <Heart className="h-4.5 w-4.5 text-[#A67C52]" />
+                        <span>Adventure Waiver</span>
+                      </h4>
+
+                      <p className="text-[11px] text-gray-600 leading-relaxed">
+                        Under executive park protocols, registered emergency data will immediately match response systems if extreme rafting or rescue is activated on high-flow days.
+                      </p>
+
+                      <div className="space-y-3 pt-2 text-xs border-t border-[#1B3022]/10">
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] uppercase text-gray-500 font-semibold block">Designated Kin Contact</span>
+                          <span className="font-bold text-[#1B3022]">{customer.emergencyContactName}</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] uppercase text-gray-500 font-semibold block">Kin Phone Link</span>
+                          <span className="font-medium text-gray-700">{customer.emergencyContactPhone}</span>
+                        </div>
+                      </div>
+
+                      <div className="rounded bg-emerald-100/50 p-2 text-[10px] text-emerald-900 border border-emerald-200">
+                        <span>✓ Dynamic Active Waiver Agreement verified by client signature.</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Conditional Catalog vs Booking vs Cottages view contents */}
@@ -954,10 +754,21 @@ export default function App() {
                     </div>
                     <ActivitiesCatalog
                       onSelectActivity={setSelectedCatalogActivity}
-                      isLoggedIn={true}
+                      isLoggedIn={customer !== null}
                       onInstantBook={(name) => {
-                        setSelectedActivity(name);
-                        setDashboardTab('booking');
+                        if (!customer) {
+                          showMsg("Please set up your Guest Profile in the left column first to book.", "error");
+                          const formEl = document.getElementById("guest-checkin-sidebar");
+                          if (formEl) {
+                            formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            const firstInput = formEl.querySelector("input");
+                            if (firstInput) (firstInput as HTMLInputElement).focus();
+                          }
+                        } else {
+                          setSelectedActivity(name);
+                          setDashboardTab('booking');
+                          showMsg(`Set "${name}" on your active desk. Customize dates and guest heads!`, 'success');
+                        }
                       }}
                       activities={activitiesList}
                     />
@@ -973,9 +784,19 @@ export default function App() {
                       onSelectCottage={setSelectedCatalogCottage}
                       isLoggedIn={customer !== null}
                       onInstantBook={(cottageName) => {
-                        setSelectedCottage(cottageName);
-                        setDashboardTab('booking');
-                        showMsg(`Selected "${cottageName}". We have added this cottage rental to your reservation total. Complete your date and occupant quantities!`, 'success');
+                        if (!customer) {
+                          showMsg("Please set up your Guest Profile in the left column first to book.", "error");
+                          const formEl = document.getElementById("guest-checkin-sidebar");
+                          if (formEl) {
+                            formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            const firstInput = formEl.querySelector("input");
+                            if (firstInput) (firstInput as HTMLInputElement).focus();
+                          }
+                        } else {
+                          setSelectedCottage(cottageName);
+                          setDashboardTab('booking');
+                          showMsg(`Selected "${cottageName}". We have added this cottage rental to your reservation total. Complete your date and occupant quantities!`, 'success');
+                        }
                       }}
                       cottages={cottagesList}
                     />
@@ -1019,7 +840,7 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-1">
-                      {bookings.map((item) => {
+                      {bookings.map((item: Booking) => {
                         const isPaid = item.paymentStatus === 'Paid';
                         return (
                           <div 
@@ -1049,7 +870,7 @@ export default function App() {
                             {/* Details layout */}
                             {item.cartItems && item.cartItems.length > 0 ? (
                               <div className="space-y-0.5 mb-1">
-                                {item.cartItems.map((ci, idx) => (
+                                {item.cartItems.map((ci: any, idx: number) => (
                                   <div
                                     key={idx}
                                     className="flex items-center justify-between text-xs"
@@ -1070,7 +891,7 @@ export default function App() {
                                 {item.activityName}
                               </div>
                             )}
-                            {item.cottageName && item.cottageName !== 'None' && (
+                            {item.cottageName && (
                               <div className="text-[10px] font-bold text-[#A67C52] font-mono uppercase tracking-wider mb-2 flex items-center gap-1">
                                 <span>⛺ Cottage Add-on: {item.cottageName}</span>
                               </div>
@@ -1271,7 +1092,6 @@ export default function App() {
             </div>
 
           </div>
-        )}
       </main>
 
 
@@ -1294,13 +1114,18 @@ export default function App() {
           onClose={() => setSelectedCatalogActivity(null)}
           isLoggedIn={customer !== null}
           onSelectForBooking={(activityName) => {
-            setSelectedActivity(activityName);
             if (!customer) {
-              setAuthTab('register');
-              showMsg(`Selected "${activityName}". Complete your verified tourist details below to finalize the river permit!`, 'success');
-              // Smooth scroll to the register layout
-              window.scrollTo({ top: 150, behavior: 'smooth' });
+              setSelectedCatalogActivity(null);
+              showMsg(`Selected "${activityName}". Please fill out your Guest Profile in the left column first to book this activity!`, 'success');
+              const formEl = document.getElementById("guest-checkin-sidebar");
+              if (formEl) {
+                formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const firstInput = formEl.querySelector("input");
+                if (firstInput) (firstInput as HTMLInputElement).focus();
+              }
             } else {
+              setSelectedCatalogActivity(null);
+              setSelectedActivity(activityName);
               setDashboardTab('booking');
               showMsg(`Set "${activityName}" on your active desk. Customize dates and guest heads!`, 'success');
             }
@@ -1316,12 +1141,18 @@ export default function App() {
           onClose={() => setSelectedCatalogCottage(null)}
           isLoggedIn={customer !== null}
           onSelectForBooking={(cottageName) => {
-            setSelectedCottage(cottageName);
             if (!customer) {
-              setAuthTab('register');
-              showMsg(`Selected cottage "${cottageName}". Complete your verified tourist registration below to reservation-lock your riverside cabin!`, 'success');
-              window.scrollTo({ top: 150, behavior: 'smooth' });
+              setSelectedCatalogCottage(null);
+              showMsg(`Selected cottage "${cottageName}". Please fill out your Guest Profile in the left column first to reservation-lock your riverside cabin!`, 'success');
+              const formEl = document.getElementById("guest-checkin-sidebar");
+              if (formEl) {
+                formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const firstInput = formEl.querySelector("input");
+                if (firstInput) (firstInput as HTMLInputElement).focus();
+              }
             } else {
+              setSelectedCatalogCottage(null);
+              setSelectedCottage(cottageName);
               setDashboardTab('booking');
               showMsg(`Applied cottage "${cottageName}" to your active booking workspace. Plan your dates!`, 'success');
             }
@@ -1442,7 +1273,7 @@ export default function App() {
                     <span className="font-mono text-gray-600 font-semibold">Included</span>
                   </div>
 
-                  {viewingReceipt.cottageName && viewingReceipt.cottageName !== 'None' && (
+                  {viewingReceipt.cottageName && (
                     <div className="p-2.5 flex justify-between items-center bg-stone-50/50">
                       <div>
                         <span className="font-semibold block text-[#1B3022]">Cottage: {viewingReceipt.cottageName}</span>

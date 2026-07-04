@@ -91,7 +91,7 @@ export const DB = {
   }): Promise<{ error: string | null }> {
     const { error } = await supabaseAdmin
       .from('customers')
-      .insert({
+      .upsert({
         id: profile.id,
         full_name: profile.fullName,
         phone: profile.phone,

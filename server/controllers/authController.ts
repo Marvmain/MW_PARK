@@ -1,18 +1,21 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { supabase } from '../lib/supabaseClient.js';
 import { DB } from '../data/manager.js';
 import { getCustomerFromToken } from '../lib/auth.js';
 import { authenticateAdmin, signAdminToken, verifyAdminToken } from '../lib/adminAuth.js';
 import { Customer } from '../../src/types.js';
+
+const HASH_SECRET = process.env.HASH_SECRET || 'mw-adventure-park-secret-salt-2026';
+
 export const AuthController = {
   /**
-   * Register a new customer via Supabase Auth + customers profile table
+   * Register or log in a new/existing customer via guest details with passwordless authentication
    */
   async register(req: Request, res: Response): Promise<void> {
     const {
       fullName,
       email,
-      password,
       phone,
       dob,
       address,
@@ -31,14 +34,6 @@ export const AuthController = {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
       res.status(400).json({ error: 'Please enter a valid email address.' });
-      return;
-    }
-
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-    if (!password || !passwordRegex.test(password)) {
-      res.status(400).json({
-        error: 'Password must be at least 8 characters and contain at least one uppercase letter, one lowercase letter, and one number.'
-      });
       return;
     }
 
@@ -91,52 +86,69 @@ export const AuthController = {
       return;
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+    const guestPassword = crypto.createHmac('sha256', HASH_SECRET).update(normalizedEmail).digest('hex') + 'aA1!';
+
     try {
+      // 1. First, check if the user is already registered by attempting to sign in
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: guestPassword
+      });
+
+      if (!signInError && signInData.user && signInData.session) {
+        // User already exists and signed in successfully. Update their profile in the database with the new details
+        await DB.createCustomerProfile({
+          id: signInData.user.id,
+          fullName: fullName.trim(),
+          phone,
+          dob,
+          address: address.trim(),
+          emergencyContactName: emergencyContactName.trim(),
+          emergencyContactPhone
+        });
+
+        const customer = await DB.getCustomerById(signInData.user.id, normalizedEmail);
+        if (customer) {
+          await DB.logSecurity(signInData.user.id, 'User Guest Login (Auto)', ip, true);
+          res.status(200).json({
+            success: true,
+            message: `Welcome back, ${customer.fullName}!`,
+            token: signInData.session.access_token,
+            customer
+          });
+          return;
+        }
+      }
+
+      // 2. If it's a new email, ensure phone is not already registered by someone else
       const phoneExists = await DB.isPhoneRegistered(phone);
       if (phoneExists) {
         res.status(400).json({ error: 'An account with this phone number already exists.' });
         return;
       }
 
-      const normalizedEmail = email.toLowerCase().trim();
-
+      // 3. Register the new guest in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: normalizedEmail,
-        password,
+        password: guestPassword,
         options: {
           data: { full_name: fullName.trim() }
         }
       });
 
       if (authError) {
-        const message = authError.message.toLowerCase();
-        if (message.includes('already registered') || message.includes('already been registered')) {
-          res.status(400).json({ error: 'An account with this email address already exists.' });
-          return;
-       } else if (message.includes('email not allowed')) {
-        res.status(400).json({ error: 'Email not allowed. Please contact support.' });
-        return;
-        }
-       /**
-        if (authError.code === 'over_email_send_rate_limit') {
-          res.status(429).json({ error: 'Too many sign-up attempts. Please wait a few minutes and try again.' });
-          return;
-        }
-          */
         console.error('Supabase signUp error:', authError);
         res.status(400).json({ error: authError.message });
         return;
       }
 
       if (!authData.user) {
-        res.status(500).json({ error: 'Failed to create account. Please try again.' });
+        res.status(500).json({ error: 'Failed to create guest session.' });
         return;
       }
 
-      if (authData.session) {
-        await supabase.auth.setSession(authData.session);
-      }
-
+      // 4. Create customer profile details row in customers table
       const { error: profileError } = await DB.createCustomerProfile({
         id: authData.user.id,
         fullName: fullName.trim(),
@@ -148,11 +160,22 @@ export const AuthController = {
       });
 
       if (profileError) {
-        res.status(500).json({ error: `Account created but profile save failed: ${profileError}` });
+        res.status(500).json({ error: `Guest session created but profile save failed: ${profileError}` });
         return;
       }
 
-      await DB.logSecurity(authData.user.id, 'User Registration', ip, true);
+      await DB.logSecurity(authData.user.id, 'User Guest Registration', ip, true);
+
+      // 5. Sign the new guest in automatically to retrieve the session token
+      const { data: finalSignIn, error: finalSignInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: guestPassword
+      });
+
+      if (finalSignInError || !finalSignIn.session) {
+        res.status(500).json({ error: 'Failed to authenticate guest session after creation.' });
+        return;
+      }
 
       const newCustomer: Customer = {
         id: authData.user.id,
@@ -168,9 +191,8 @@ export const AuthController = {
 
       res.status(201).json({
         success: true,
-        message: authData.session
-          ? 'Registration successful! You can now log in to manage your bookings.'
-          : 'Registration successful! Please check your email to confirm your account before logging in.',
+        message: 'Guest check-in successful!',
+        token: finalSignIn.session.access_token,
         customer: newCustomer
       });
     } catch (error: unknown) {
@@ -179,49 +201,7 @@ export const AuthController = {
     }
   },
 
-  /**
-   * Log in a customer via Supabase Auth
-   */
-  async login(req: Request, res: Response): Promise<void> {
-    const { email, password } = req.body;
-    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
 
-    if (!email || !password) {
-      res.status(400).json({ error: 'Please enter both your email address and password.' });
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase().trim(),
-        password
-      });
-
-      if (error || !data.user || !data.session) {
-        await DB.logSecurity(null, `Failed Login Attempt (Email: ${email})`, ip, false);
-        res.status(401).json({ error: 'Invalid email address or password. Please try again.' });
-        return;
-      }
-
-      const customer = await DB.getCustomerById(data.user.id, data.user.email || '');
-      if (!customer) {
-        res.status(401).json({ error: 'Account profile not found. Please contact support.' });
-        return;
-      }
-
-      await DB.logSecurity(data.user.id, 'User Login Success', ip, true);
-
-      res.status(200).json({
-        success: true,
-        message: `Welcome back, ${customer.fullName}!`,
-        token: data.session.access_token,
-        customer
-      });
-    } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ error: 'Internal system error during authentication.' });
-    }
-  },
 
   /**
    * Validate session token and return user profile

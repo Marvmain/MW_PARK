@@ -51,7 +51,7 @@ export interface Booking {
   customerId: string;
   // Legacy single-activity fields (kept for backward-compat with existing DB rows)
   activityName: ActivityName;
-  cottageName?: 'Riverfront Canopy Cabana' | 'Dumagat Stilt Lodge' | 'Forest Canopy Treehouse' | 'Pandan Bamboo Shelter' | 'None';
+  cottageName?: string | null;
   bookingDate: string;
   scheduleTime: '08:00 AM' | '10:30 AM' | '01:30 PM' | '04:00 PM';
   numberOfAdults: number;
