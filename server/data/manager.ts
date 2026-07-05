@@ -64,6 +64,51 @@ function mapCustomerRow(row: Record<string, unknown>, email = ''): Customer {
   };
 }
 
+function mapBookingRow(row: Record<string, unknown>): Booking {
+  return {
+    id: row.id as string,
+    customerId: row.customer_id as string,
+    activityName: row.activity_name as Booking['activityName'],
+    cottageName: (row.cottage_name as string) || undefined,
+    bookingDate: row.booking_date as string,
+    scheduleTime: row.schedule_time as Booking['scheduleTime'],
+    numberOfAdults: row.number_of_adults as number,
+    numberOfChildren: row.number_of_children as number,
+    totalAmount: row.total_amount as number,
+    downPaymentAmount: (row.down_payment_amount as number) ?? undefined,
+    balanceDueAmount: (row.balance_due_amount as number) ?? undefined,
+    rulesAccepted: (row.rules_accepted as boolean) ?? undefined,
+    paymentStatus: row.payment_status as Booking['paymentStatus'],
+    bookingStatus: (row.booking_status as Booking['bookingStatus']) || undefined,
+    paymentMethod: (row.payment_method as Booking['paymentMethod']) || undefined,
+    qrCodeToken: row.qr_code_token as string,
+    createdAt: row.created_at as string,
+    adminNotes: (row as any).admin_notes || undefined,
+  } as Booking;
+}
+
+function bookingToRow(b: Booking): Record<string, unknown> {
+  return {
+    id: b.id,
+    customer_id: b.customerId,
+    activity_name: b.activityName,
+    cottage_name: b.cottageName || null,
+    booking_date: b.bookingDate,
+    schedule_time: b.scheduleTime,
+    number_of_adults: b.numberOfAdults,
+    number_of_children: b.numberOfChildren,
+    total_amount: b.totalAmount,
+    down_payment_amount: b.downPaymentAmount ?? null,
+    balance_due_amount: b.balanceDueAmount ?? null,
+    rules_accepted: b.rulesAccepted ?? null,
+    payment_status: b.paymentStatus,
+    booking_status: b.bookingStatus || null,
+    payment_method: b.paymentMethod || null,
+    qr_code_token: b.qrCodeToken,
+    admin_notes: (b as any).adminNotes || null,
+  };
+}
+
 export const DB = {
   async isPhoneRegistered(phone: string): Promise<boolean> {
     const { data, error } = await supabaseAdmin
@@ -124,64 +169,18 @@ export const DB = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) { console.error('getBookings error:', error); return []; }
-    return (data || []).map(row => ({
-      id: row.id,
-      customerId: row.customer_id,
-      activityName: row.activity_name,
-      cottageName: row.cottage_name || undefined,
-      bookingDate: row.booking_date,
-      scheduleTime: row.schedule_time,
-      numberOfAdults: row.number_of_adults,
-      numberOfChildren: row.number_of_children,
-      totalAmount: row.total_amount,
-      paymentStatus: row.payment_status,
-      bookingStatus: row.booking_status || undefined,
-      paymentMethod: row.payment_method || undefined,
-      qrCodeToken: row.qr_code_token,
-      createdAt: row.created_at,
-      adminNotes: row.admin_notes || undefined,
-    }));
+    return (data || []).map(mapBookingRow);
   },
 
   async saveBookings(bookings: Booking[]): Promise<void> {
     for (const b of bookings) {
-      const { error } = await supabaseAdmin.from('bookings').upsert({
-        id: b.id,
-        customer_id: b.customerId,
-        activity_name: b.activityName,
-        cottage_name: b.cottageName || null,
-        booking_date: b.bookingDate,
-        schedule_time: b.scheduleTime,
-        number_of_adults: b.numberOfAdults,
-        number_of_children: b.numberOfChildren,
-        total_amount: b.totalAmount,
-        payment_status: b.paymentStatus,
-        booking_status: b.bookingStatus || null,
-        payment_method: b.paymentMethod || null,
-        qr_code_token: b.qrCodeToken,
-        admin_notes: (b as any).adminNotes || null,
-      });
+      const { error } = await supabaseAdmin.from('bookings').upsert(bookingToRow(b));
       if (error) console.error('saveBookings upsert error:', error);
     }
   },
 
   async upsertBooking(b: Booking): Promise<void> {
-    const { error } = await supabaseAdmin.from('bookings').upsert({
-      id: b.id,
-      customer_id: b.customerId,
-      activity_name: b.activityName,
-      cottage_name: b.cottageName || null,
-      booking_date: b.bookingDate,
-      schedule_time: b.scheduleTime,
-      number_of_adults: b.numberOfAdults,
-      number_of_children: b.numberOfChildren,
-      total_amount: b.totalAmount,
-      payment_status: b.paymentStatus,
-      booking_status: b.bookingStatus || null,
-      payment_method: b.paymentMethod || null,
-      qr_code_token: b.qrCodeToken,
-      admin_notes: (b as any).adminNotes || null,
-    });
+    const { error } = await supabaseAdmin.from('bookings').upsert(bookingToRow(b));
     if (error) throw new Error(error.message);
   },
 
@@ -193,10 +192,12 @@ export const DB = {
 
   async updateBookingFields(id: string, fields: Record<string, unknown>): Promise<Booking | null> {
     const dbFields: Record<string, unknown> = {};
-    if (fields.paymentStatus !== undefined) dbFields.payment_status = fields.paymentStatus;
-    if (fields.bookingStatus !== undefined) dbFields.booking_status = fields.bookingStatus;
-    if (fields.paymentMethod !== undefined) dbFields.payment_method = fields.paymentMethod;
-    if (fields.adminNotes    !== undefined) dbFields.admin_notes    = fields.adminNotes;
+    if (fields.paymentStatus     !== undefined) dbFields.payment_status      = fields.paymentStatus;
+    if (fields.bookingStatus     !== undefined) dbFields.booking_status      = fields.bookingStatus;
+    if (fields.paymentMethod     !== undefined) dbFields.payment_method      = fields.paymentMethod;
+    if (fields.adminNotes        !== undefined) dbFields.admin_notes         = fields.adminNotes;
+    if (fields.downPaymentAmount !== undefined) dbFields.down_payment_amount = fields.downPaymentAmount;
+    if (fields.balanceDueAmount  !== undefined) dbFields.balance_due_amount  = fields.balanceDueAmount;
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
@@ -205,22 +206,7 @@ export const DB = {
       .select()
       .single();
     if (error) { console.error('updateBookingFields error:', error); return null; }
-    return {
-      id: data.id,
-      customerId: data.customer_id,
-      activityName: data.activity_name,
-      cottageName: data.cottage_name || undefined,
-      bookingDate: data.booking_date,
-      scheduleTime: data.schedule_time,
-      numberOfAdults: data.number_of_adults,
-      numberOfChildren: data.number_of_children,
-      totalAmount: data.total_amount,
-      paymentStatus: data.payment_status,
-      bookingStatus: data.booking_status || undefined,
-      paymentMethod: data.payment_method || undefined,
-      qrCodeToken: data.qr_code_token,
-      createdAt: data.created_at,
-    };
+    return mapBookingRow(data);
   },
 
   // ─── LOGS ─────────────────────────────────────────────────────────────────────

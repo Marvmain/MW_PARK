@@ -55,7 +55,6 @@ export default function App(): React.ReactElement {
   const handleUpdateActivities = (newActs: Activity[]) => {
     setActivitiesList(newActs);
     localStorage.setItem('mw_activities_data', JSON.stringify(newActs));
-    // Also keep forms updated if active product is updated/removed
   };
 
   const handleUpdateCottages = (newCots: Cottage[]) => {
@@ -66,7 +65,6 @@ export default function App(): React.ReactElement {
   // Session State
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('mw_session_token'));
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
   // Active activity and cottage detail modal selection
   const [selectedCatalogActivity, setSelectedCatalogActivity] = useState<Activity | null>(null);
   const [selectedCatalogCottage, setSelectedCatalogCottage] = useState<Cottage | null>(null);
@@ -74,33 +72,30 @@ export default function App(): React.ReactElement {
   // Dashboard view toggle: 'catalog' | 'booking' | 'cottages'
   const [dashboardTab, setDashboardTab] = useState<'catalog' | 'booking' | 'cottages'>('catalog');
 
-// booking modal
+  // ── Booking Modal (Guest Check-In → Activities → Cottages → Confirm Check-In → Rules → Payment) ──
   const [showBookingModal, setShowBookingModal] = useState(false);
-  // Input States for Guest Check-In Registration
-  const [regFullName, setRegFullName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regDob, setRegDob] = useState('');
-  const [regAddress, setRegAddress] = useState('');
-  const [regEmergencyName, setRegEmergencyName] = useState('');
-  const [regEmergencyPhone, setRegEmergencyPhone] = useState('');
-  const [regAcceptTerms, setRegAcceptTerms] = useState(false);
+  const [modalPreActivity, setModalPreActivity] = useState<ActivityName | undefined>(undefined);
+  const [modalPreCottage, setModalPreCottage] = useState<string | undefined>(undefined);
+
+  const openBookingModal = (preActivity?: ActivityName, preCottage?: string) => {
+    setModalPreActivity(preActivity);
+    setModalPreCottage(preCottage);
+    setShowBookingModal(true);
+  };
+
+  const handleAuthenticated = (newToken: string, newCustomer: Customer) => {
+    localStorage.setItem('mw_session_token', newToken);
+    setToken(newToken);
+    setCustomer(newCustomer);
+    fetchBookings(newToken);
+  };
 
   // Application/Booking States
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
-  
-  // Dynamic Booking Form States
-  const [selectedActivity, setSelectedActivity] = useState<ActivityName>('Kawa Spa');
-  const [selectedCottage, setSelectedCottage] = useState<string | null>(null);
-  const [bookingDate, setBookingDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState<'08:00 AM' | '10:30 AM' | '01:30 PM' | '04:00 PM'>('08:00 AM');
-  const [numberOfAdults, setNumberOfAdults] = useState(1);
-  const [numberOfChildren, setNumberOfChildren] = useState(0);
 
   // Booking details & notification banners
   const [sysMessage, setSysMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
   const [processingPaymentId, setProcessingPaymentId] = useState<string | null>(null);
   
   // GCash Integration user-side states
@@ -108,20 +103,6 @@ export default function App(): React.ReactElement {
   const [qrImageExpanded, setQrImageExpanded] = useState(false);
   const [viewingReceipt, setViewingReceipt] = useState<any | null>(null);
   const [submittingProofForBookingId, setSubmittingProofForBookingId] = useState<string | null>(null);
-
-
-
-  // Calculated Price in Real-time dynamically resolved from state
-  const activeActivityObject = activitiesList.find((a: Activity) => a.name === selectedActivity);
-  const activeCottageObject = selectedCottage ? cottagesList.find((c: Cottage) => c.name === selectedCottage) : null;
-
-  const rates = activeActivityObject || { adultRate: 350, childRate: 175 };
-
-  const currentAdultRate = activeActivityObject ? activeActivityObject.adultRate : 350;
-  const currentChildRate = activeActivityObject ? activeActivityObject.childRate : 175;
-  const currentCottageRate = activeCottageObject ? activeCottageObject.ratePerDay : 0;
-
-  const calculatedTotal = (numberOfAdults * currentAdultRate) + (numberOfChildren * currentChildRate) + currentCottageRate;
 
   // Auto-load profile if storage token exists
   useEffect(() => {
@@ -189,47 +170,6 @@ export default function App(): React.ReactElement {
     }
   };
 
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regFullName || !regEmail || !regPhone || !regDob || !regAddress || !regEmergencyName || !regEmergencyPhone) {
-      showMsg('Please complete all required fields.', 'error');
-      return;
-    }
-
-    setIsAuthenticating(true);
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: regFullName,
-          email: regEmail,
-          phone: regPhone,
-          dob: regDob,
-          address: regAddress,
-          emergencyContactName: regEmergencyName,
-          emergencyContactPhone: regEmergencyPhone,
-          acceptTerms: regAcceptTerms
-        })
-      });
-
-      const data = await res.json();
-      if (res.ok && data.token && data.customer) {
-        localStorage.setItem('mw_session_token', data.token);
-        setToken(data.token);
-        setCustomer(data.customer);
-        showMsg(data.message || 'Guest check-in successful!', 'success');
-        fetchBookings(data.token);
-      } else {
-        showMsg(data.error || 'Check-in failed.', 'error');
-      }
-    } catch (err) {
-      showMsg('Connection error during guest setup.', 'error');
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
   const handleLogoutAction = async () => {
     if (token) {
       try {
@@ -246,80 +186,6 @@ export default function App(): React.ReactElement {
     setCustomer(null);
     setBookings([]);
     showMsg('Session closed successfully.', 'success');
-  };
-
-  const handleBookingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-    if (!bookingDate) {
-      showMsg('Please supply a valid date for your river reservation.', 'error');
-      return;
-    }
-
-    setIsSubmittingBooking(true);
-    try {
-      const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          activityName: selectedActivity,
-          cottageName: selectedCottage,
-          bookingDate,
-          scheduleTime,
-          numberOfAdults,
-          numberOfChildren,
-          totalAmount: calculatedTotal
-        })
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        showMsg(data.message, 'success');
-        fetchBookings(token);
-        // Reset form details safely
-        setBookingDate('');
-        setSelectedCottage(null);
-        setNumberOfChildren(0);
-        setNumberOfAdults(1);
-      } else {
-        showMsg(data.error || 'Failed to submit reservation.', 'error');
-      }
-    } catch (e) {
-      showMsg('Failed to record reservation. Check network service logs.', 'error');
-    } finally {
-      setIsSubmittingBooking(false);
-    }
-  };
-
-  const handleSimulatedPayment = async (bookingId: string, gateway: 'GCash' | 'Maya') => {
-    if (!token) return;
-    setProcessingPaymentId(bookingId);
-
-    try {
-      const res = await fetch('/api/bookings/pay', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ bookingId, paymentMethod: gateway })
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        showMsg(data.message, 'success');
-        fetchBookings(token);
-      } else {
-        showMsg(data.error || 'Payment gateway returned error.', 'error');
-      }
-    } catch (e) {
-      showMsg('Payment gateway communication system error.', 'error');
-    } finally {
-      setProcessingPaymentId(null);
-    }
   };
 
   const handleGuestProofUpload = async (bookingId: string, file: File) => {
@@ -386,7 +252,7 @@ export default function App(): React.ReactElement {
       
       {/* Dynamic Global System Message Alert (Top Overlay) */}
       {sysMessage && (
-        <div className={`fixed top-4 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4 transition-all animate-fade-in`}>
+        <div className={`fixed top-4 left-1/2 z-[10050] w-full max-w-md -translate-x-1/2 px-4 transition-all animate-fade-in`}>
           <div className={`flex items-start gap-3 rounded-lg p-4 shadow-xl border ${
             sysMessage.type === 'success' 
               ? 'bg-emerald-50 text-emerald-900 border-emerald-200' 
@@ -466,9 +332,9 @@ export default function App(): React.ReactElement {
                 </div>
                 <div className="bg-[#FAF9F6]/10 p-3 rounded text-center">
                   <span className="block text-xl font-bold font-serif text-[#A67C52]">
-                    ₱{bookings.reduce((sum: number, b: Booking) => b.paymentStatus === 'Paid' ? sum + b.totalAmount : sum, 0).toLocaleString()}
+                    ₱{bookings.reduce((sum: number, b: Booking) => b.paymentStatus === 'Paid' ? sum + (b.downPaymentAmount ?? b.totalAmount) : sum, 0).toLocaleString()}
                   </span>
-                  <span className="text-[9px] uppercase tracking-wider text-slate-300">Paid River Activities</span>
+                  <span className="text-[9px] uppercase tracking-wider text-slate-300">Down Payments Received</span>
                 </div>
               </div>
               {/* Abs decoration backdrop symbol */}
@@ -520,19 +386,7 @@ export default function App(): React.ReactElement {
                 )}
               </button>
               <button
-                  onClick={() => {
-                    if (customer) {
-                      setShowBookingModal(true);
-                    } else {
-                      showMsg("Please set up your Guest Profile in the left column before booking.", "error");
-                      const formEl = document.getElementById("guest-checkin-sidebar");
-                      if (formEl) {
-                        formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        const firstInput = formEl.querySelector("input");
-                        if (firstInput) (firstInput as HTMLInputElement).focus();
-                      }
-                    }
-                  }}
+                  onClick={() => openBookingModal()}
                   className="ml-auto px-4 py-2 bg-[#1B3022] hover:bg-[#A67C52] text-white rounded-md transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider cursor-pointer"
                 >
                   <PlusCircle className="h-4 w-4" />
@@ -543,129 +397,24 @@ export default function App(): React.ReactElement {
             {/* Core Capstone Tri-Grid layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               
-              {/* COLUMN 1: Profile & Emergency Waivers Dashboard (Width: 3/12) */}
+              {/* COLUMN 1: Profile / Check-In prompt & Emergency Waivers Dashboard (Width: 3/12) */}
               <div className="lg:col-span-3 space-y-6">
                 {!customer ? (
-                  <div className="border border-[#1B3022]/10 bg-white p-5 space-y-5 rounded-md shadow-xs" id="guest-checkin-sidebar">
-                    <h4 className="font-serif text-lg border-b border-[#1B3022]/10 pb-2 text-[#1B3022]">Guest Check-In</h4>
-                    <p className="text-[10px] text-gray-500 leading-relaxed">
-                      Complete your visitor info to browse & book. Philippine river safety guidelines require accurate names and emergency contact links. No password needed.
+                  <div className="border border-[#1B3022]/10 bg-white p-6 space-y-4 rounded-md shadow-xs text-center">
+                    <div className="h-12 w-12 mx-auto rounded-full bg-[#1B3022]/10 flex items-center justify-center">
+                      <User className="h-5 w-5 text-[#A67C52]" />
+                    </div>
+                    <h4 className="font-serif text-lg text-[#1B3022]">Not Checked In Yet</h4>
+                    <p className="text-[11px] text-gray-500 leading-relaxed">
+                      Tap <strong>Book Now</strong> to check in, browse activities and cottages, review park rules,
+                      and pay your 20% down payment — all in one guided flow.
                     </p>
-                    <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                      <div className="space-y-1">
-                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Full Name</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Maria Santos"
-                          value={regFullName}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegFullName(e.target.value)}
-                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Email Address</label>
-                        <input
-                          type="email"
-                          required
-                          placeholder="maria.santos@gmail.com"
-                          value={regEmail}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmail(e.target.value)}
-                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Mobile Number (PH)</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. 09171234567"
-                          value={regPhone}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPhone(e.target.value)}
-                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Date of Birth</label>
-                        <input
-                          type="date"
-                          required
-                          value={regDob}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegDob(e.target.value)}
-                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] uppercase tracking-wider text-gray-500 font-bold block">Residential Address</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Street, City, Province"
-                          value={regAddress}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegAddress(e.target.value)}
-                          className="w-full p-2 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-xs focus:outline-none focus:border-[#A67C52] text-[#1B3022] font-medium"
-                        />
-                      </div>
-
-                      <div className="bg-[#1B3022]/5 p-3 border border-[#1B3022]/10 rounded space-y-2">
-                        <span className="text-[9px] uppercase tracking-widest text-[#1B3022] font-bold block">🚨 Emergency contact</span>
-                        <div className="space-y-2">
-                          <div>
-                            <label className="text-[8px] uppercase text-gray-500 block">Contact Full Name</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="Primary Kin Name"
-                              value={regEmergencyName}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmergencyName(e.target.value)}
-                              className="w-full p-1.5 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-[11px] focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[8px] uppercase text-gray-500 block">Kin Mobile (PH)</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="09179998877"
-                              value={regEmergencyPhone}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmergencyPhone(e.target.value)}
-                              className="w-full p-1.5 bg-[#FAF9F6] border border-[#1B3022]/15 rounded text-[11px] focus:outline-none focus:border-[#A67C52] text-[#1B3022]"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="flex items-start gap-2.5 cursor-pointer text-[10px] leading-relaxed text-gray-600">
-                          <input
-                            type="checkbox"
-                            required
-                            checked={regAcceptTerms}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegAcceptTerms(e.target.checked)}
-                            className="mt-0.5 accent-[#1B3022] rounded shrink-0"
-                          />
-                          <span>
-                            I authorize MW Adventure Park to register my details for safety protocols & river waivers.
-                          </span>
-                        </label>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={isAuthenticating}
-                        className="w-full bg-[#1B3022] hover:bg-[#A67C52] text-white py-2.5 text-xs uppercase tracking-[0.2em] font-semibold transition-colors mt-2 shadow-sm flex items-center justify-center cursor-pointer disabled:opacity-60"
-                      >
-                        {isAuthenticating ? (
-                          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                        ) : (
-                          'Check In & Start Booking'
-                        )}
-                      </button>
-                    </form>
+                    <button
+                      onClick={() => openBookingModal()}
+                      className="w-full bg-[#1B3022] hover:bg-[#A67C52] text-white py-2.5 text-xs uppercase tracking-[0.2em] font-semibold transition-colors shadow-sm rounded cursor-pointer"
+                    >
+                      Start Check-In & Booking
+                    </button>
                   </div>
                 ) : (
                   <>
@@ -756,19 +505,7 @@ export default function App(): React.ReactElement {
                       onSelectActivity={setSelectedCatalogActivity}
                       isLoggedIn={customer !== null}
                       onInstantBook={(name) => {
-                        if (!customer) {
-                          showMsg("Please set up your Guest Profile in the left column first to book.", "error");
-                          const formEl = document.getElementById("guest-checkin-sidebar");
-                          if (formEl) {
-                            formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            const firstInput = formEl.querySelector("input");
-                            if (firstInput) (firstInput as HTMLInputElement).focus();
-                          }
-                        } else {
-                          setSelectedActivity(name);
-                          setDashboardTab('booking');
-                          showMsg(`Set "${name}" on your active desk. Customize dates and guest heads!`, 'success');
-                        }
+                        openBookingModal(name);
                       }}
                       activities={activitiesList}
                     />
@@ -784,19 +521,7 @@ export default function App(): React.ReactElement {
                       onSelectCottage={setSelectedCatalogCottage}
                       isLoggedIn={customer !== null}
                       onInstantBook={(cottageName) => {
-                        if (!customer) {
-                          showMsg("Please set up your Guest Profile in the left column first to book.", "error");
-                          const formEl = document.getElementById("guest-checkin-sidebar");
-                          if (formEl) {
-                            formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            const firstInput = formEl.querySelector("input");
-                            if (firstInput) (firstInput as HTMLInputElement).focus();
-                          }
-                        } else {
-                          setSelectedCottage(cottageName);
-                          setDashboardTab('booking');
-                          showMsg(`Selected "${cottageName}". We have added this cottage rental to your reservation total. Complete your date and occupant quantities!`, 'success');
-                        }
+                        openBookingModal(undefined, cottageName);
                       }}
                       cottages={cottagesList}
                     />
@@ -804,12 +529,8 @@ export default function App(): React.ReactElement {
                 </div>
               ) : (
                 <>
-                  {/* COLUMN 2: Interactive River Booking Form & Rate Calculator (Width: 4/12) */}
-                  
-                
-
               {/* COLUMN 3: Active Bookings, PayMongo Gateways, and QR E-tickets (Width: 5/12) */}
-              <div className="lg:col-span-5 space-y-6">
+              <div className="lg:col-span-9 space-y-6">
                 <div className="border border-[#1B3022]/10 bg-white p-6 space-y-6">
                   
                   <div className="flex items-center justify-between border-b border-[#1B3022]/10 pb-2">
@@ -823,7 +544,18 @@ export default function App(): React.ReactElement {
                     </span>
                   </div>
 
-                  {isLoadingBookings ? (
+                  {!customer ? (
+                    <div className="py-12 text-center border border-dashed border-[#1B3022]/10 rounded bg-[#FAF9F6] text-gray-500 space-y-3">
+                      <Calendar className="h-8 w-8 text-slate-300 mx-auto" />
+                      <p className="text-xs font-bold">Check in first to view bookings</p>
+                      <button
+                        onClick={() => openBookingModal()}
+                        className="px-4 py-2 bg-[#1B3022] hover:bg-[#A67C52] text-white text-[10px] font-bold uppercase tracking-wider rounded transition-colors cursor-pointer"
+                      >
+                        Start Check-In & Booking
+                      </button>
+                    </div>
+                  ) : isLoadingBookings ? (
                     <div className="py-12 text-center text-xs text-gray-400">
                       <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#1B3022] mb-2"></span>
                       <p>Sourcing registered itineraries from park database...</p>
@@ -834,7 +566,7 @@ export default function App(): React.ReactElement {
                       <div className="space-y-1">
                         <p className="text-xs font-bold">No Bookings Recorded Yet</p>
                         <p className="text-[10px] text-gray-400 max-w-xs mx-auto">
-                          You haven't requested any river adventure permits yet. Customize guests on the left and submit to authorize.
+                          You haven't requested any river adventure permits yet. Tap Book Now to get started.
                         </p>
                       </div>
                     </div>
@@ -842,6 +574,8 @@ export default function App(): React.ReactElement {
                     <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-1">
                       {bookings.map((item: Booking) => {
                         const isPaid = item.paymentStatus === 'Paid';
+                        const downPayment = item.downPaymentAmount ?? Math.ceil(item.totalAmount * 0.2);
+                        const balanceDue = item.balanceDueAmount ?? (item.totalAmount - downPayment);
                         return (
                           <div 
                             key={item.id} 
@@ -921,6 +655,16 @@ export default function App(): React.ReactElement {
                                 <span className="text-[9px] text-gray-400 block font-sans">GRAND TOTAL</span>
                                 <span className="font-bold text-emerald-800">₱{item.totalAmount.toLocaleString()}</span>
                               </div>
+
+                              <div>
+                                <span className="text-[9px] text-gray-400 block font-sans">DOWN PAYMENT (20%)</span>
+                                <span className="font-bold text-[#A67C52]">₱{downPayment.toLocaleString()}</span>
+                              </div>
+
+                              <div>
+                                <span className="text-[9px] text-gray-400 block font-sans">BALANCE ON-SITE</span>
+                                <span className="font-medium text-gray-700">₱{balanceDue.toLocaleString()}</span>
+                              </div>
                             </div>
 
                             {/* GCash Payment Mode Integration */}
@@ -932,7 +676,7 @@ export default function App(): React.ReactElement {
                                   </div>
                                   <div className="space-y-1 overflow-hidden">
                                     <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[8px] font-bold text-emerald-800 uppercase tracking-wider">
-                                      ✓ Active Admission Ticket
+                                      ✓ Confirmed — Down Payment Settled
                                     </span>
                                     <p className="text-[10px] font-bold text-[#1B3022] truncate">
                                       ID: {item.id}
@@ -941,7 +685,7 @@ export default function App(): React.ReactElement {
                                       TOKEN: {item.qrCodeToken.substring(0, 20)}...
                                     </p>
                                     <p className="text-[9px] text-[#A67C52] leading-tight">
-                                      Present this QR code upon arrival at MW Adventure Park for instant scanning.
+                                      Present this QR code upon arrival. Balance of ₱{balanceDue.toLocaleString()} is payable on-site.
                                     </p>
                                   </div>
                                 </div>
@@ -962,10 +706,10 @@ export default function App(): React.ReactElement {
                                  <Clock className="h-8 w-8 text-amber-500 mx-auto animate-pulse" />
                                  <div className="space-y-1">
                                    <span className="text-[10px] font-extrabold text-amber-900 uppercase tracking-widest block">
-                                     ⏰ Pending Verification
+                                     ⏰ Down Payment Pending Verification
                                    </span>
                                    <p className="text-[10px] text-amber-700 leading-relaxed max-w-xs mx-auto">
-                                     Your GCash payment proof is being audited by the municipal park marshals. Once confirmed, your scanner ticket and receipt will be issued here instantly.
+                                     Your GCash down payment proof is being audited by the municipal park marshals. Once confirmed, your scanner ticket and receipt will be issued here instantly.
                                    </p>
                                  </div>
                                </div>
@@ -975,10 +719,10 @@ export default function App(): React.ReactElement {
                                  {item.paymentStatus === 'Rejected' && (
                                    <div className="bg-red-50 border border-red-200 text-red-900 p-3 rounded text-center space-y-1">
                                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-red-700 block">
-                                       ❌ Payment Proof Rejected
+                                       ❌ Down Payment Proof Rejected
                                      </span>
                                      <p className="text-[10px] text-red-800 leading-relaxed font-light">
-                                       Please upload a new payment proof screenshot. Ensure that the GCash reference number is readable and matches the grand total.
+                                       Please upload a new payment proof screenshot. Ensure that the GCash reference number is readable and matches ₱{downPayment.toLocaleString()}.
                                      </p>
                                    </div>
                                  )}
@@ -987,10 +731,10 @@ export default function App(): React.ReactElement {
                                  <div className="bg-amber-50/30 border border-amber-100 rounded p-4 space-y-3">
                                    <div className="flex justify-between items-center border-b border-amber-200/40 pb-2">
                                      <span className="text-[10px] font-bold text-[#A67C52] uppercase tracking-wider flex items-center gap-1">
-                                       🛡️ GCash Eco-Permit Gateway
+                                       🛡️ GCash Down Payment Gateway
                                      </span>
                                      <span className="text-[10px] font-mono font-bold text-gray-500">
-                                       Amount Due: <span className="text-[#1B3022]">₱{item.totalAmount.toLocaleString()}</span>
+                                       Amount Due: <span className="text-[#1B3022]">₱{downPayment.toLocaleString()}</span>
                                      </span>
                                    </div>
 
@@ -1079,7 +823,7 @@ export default function App(): React.ReactElement {
 
                   <div className="border-t border-slate-100 pt-3">
                     <p className="text-[10px] text-gray-400 leading-tight">
-                      * Refund and cancellation requested are subjected to a municipal surcharge. Activities are highly dependent on Dumagat River safety telemetry reports.
+                      * A 20% down payment confirms your reservation slot; the remaining balance is settled on-site. Refund and cancellation requests are subject to a municipal surcharge. Activities are highly dependent on Dumagat River safety telemetry reports.
                     </p>
                   </div>
 
@@ -1114,21 +858,8 @@ export default function App(): React.ReactElement {
           onClose={() => setSelectedCatalogActivity(null)}
           isLoggedIn={customer !== null}
           onSelectForBooking={(activityName) => {
-            if (!customer) {
-              setSelectedCatalogActivity(null);
-              showMsg(`Selected "${activityName}". Please fill out your Guest Profile in the left column first to book this activity!`, 'success');
-              const formEl = document.getElementById("guest-checkin-sidebar");
-              if (formEl) {
-                formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                const firstInput = formEl.querySelector("input");
-                if (firstInput) (firstInput as HTMLInputElement).focus();
-              }
-            } else {
-              setSelectedCatalogActivity(null);
-              setSelectedActivity(activityName);
-              setDashboardTab('booking');
-              showMsg(`Set "${activityName}" on your active desk. Customize dates and guest heads!`, 'success');
-            }
+            setSelectedCatalogActivity(null);
+            openBookingModal(activityName);
           }}
         />
       )}
@@ -1141,21 +872,8 @@ export default function App(): React.ReactElement {
           onClose={() => setSelectedCatalogCottage(null)}
           isLoggedIn={customer !== null}
           onSelectForBooking={(cottageName) => {
-            if (!customer) {
-              setSelectedCatalogCottage(null);
-              showMsg(`Selected cottage "${cottageName}". Please fill out your Guest Profile in the left column first to reservation-lock your riverside cabin!`, 'success');
-              const formEl = document.getElementById("guest-checkin-sidebar");
-              if (formEl) {
-                formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                const firstInput = formEl.querySelector("input");
-                if (firstInput) (firstInput as HTMLInputElement).focus();
-              }
-            } else {
-              setSelectedCatalogCottage(null);
-              setSelectedCottage(cottageName);
-              setDashboardTab('booking');
-              showMsg(`Applied cottage "${cottageName}" to your active booking workspace. Plan your dates!`, 'success');
-            }
+            setSelectedCatalogCottage(null);
+            openBookingModal(undefined, cottageName);
           }}
         />
       )}
@@ -1285,7 +1003,7 @@ export default function App(): React.ReactElement {
 
                   {/* Grand total highlight */}
                   <div className="p-3 flex justify-between items-center bg-[#1B3022]/5 text-[#1B3022] font-bold">
-                    <span className="uppercase text-[10px] tracking-wider">Total Received (PHP)</span>
+                    <span className="uppercase text-[10px] tracking-wider">Down Payment Received (PHP)</span>
                     <span className="font-mono font-black text-sm">₱{viewingReceipt.amountPaid.toLocaleString()}</span>
                   </div>
                 </div>
@@ -1302,11 +1020,11 @@ export default function App(): React.ReactElement {
                       />
                     )}
                     <div className="border border-emerald-300 bg-emerald-50 text-emerald-800 rounded p-2.5 inline-block text-xs font-bold uppercase tracking-wider">
-                      ✓ Eco-Fee Fully Settled & Cleared
+                      ✓ Down Payment Fully Settled & Cleared
                     </div>
                   </div>
                    <p className="text-[9px] text-gray-400 leading-relaxed italic max-w-sm mx-auto">
-                  Disclaimer: This document is issued as digital proof-of-payment. Local ecological permit ordinances are protected by municipal resolutions. Present on terminal boarding.
+                  Disclaimer: This document is issued as digital proof-of-payment for your 20% down payment. The remaining balance is payable on-site. Present on terminal boarding.
                 </p>
               </div>
 
@@ -1333,18 +1051,24 @@ export default function App(): React.ReactElement {
           </div>
         </div>
       )}
-            {showBookingModal && (
-            <BookingModal
-              activitiesList={activitiesList}
-              cottagesList={cottagesList}
-              token={token!}
-              onSuccess={() => {
-                fetchBookings(token!);
-              }}
-              showMsg={showMsg}
-              onClose={() => setShowBookingModal(false)}
-            />
-          )}
+
+      {showBookingModal && (
+        <BookingModal
+          activitiesList={activitiesList}
+          cottagesList={cottagesList}
+          customer={customer}
+          token={token}
+          onAuthenticated={handleAuthenticated}
+          onSuccess={() => {
+            if (token) fetchBookings(token);
+          }}
+          showMsg={showMsg}
+          onClose={() => setShowBookingModal(false)}
+          adminQRPref={adminQRPref}
+          preSelectedActivity={modalPreActivity}
+          preSelectedCottage={modalPreCottage}
+        />
+      )}
     </div>
   );
 }

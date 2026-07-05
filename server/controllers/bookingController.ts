@@ -19,6 +19,9 @@ const COTTAGE_PRICING: Record<string, number> = {
   'None': 0,
 };
 
+/** Fraction of the total fare required as a down payment to confirm a reservation */
+const DOWN_PAYMENT_RATE = 0.2;
+
 export const BookingController = {
   async getMyBookings(req: Request, res: Response): Promise<void> {
     const customer = req.customer!;
@@ -44,11 +47,16 @@ export const BookingController = {
       scheduleTime,
       numberOfAdults,
       numberOfChildren,
-      totalAmount,
+      rulesAccepted,
     } = req.body;
 
     if (!bookingDate) {
       res.status(400).json({ error: 'Booking date is required.' });
+      return;
+    }
+
+    if (!rulesAccepted) {
+      res.status(400).json({ error: 'You must agree to the Rules & Regulations waiver before confirming check-in.' });
       return;
     }
 
@@ -85,7 +93,7 @@ export const BookingController = {
       const targetCottage = cottageName || 'None';
       const cottageRate = COTTAGE_PRICING[targetCottage] ?? 0;
 
-      let computedTotal = totalAmount !== undefined ? parseInt(totalAmount, 10) : 0;
+      let computedTotal = 0;
       let resolvedCartItems: CartItem[] | undefined;
       let primaryActivityName: string;
       let resolvedAdults: number;
@@ -112,6 +120,10 @@ export const BookingController = {
         resolvedChildren = childrenCount;
       }
 
+      // Server is the source of truth for the down payment split — never trust client-supplied amounts.
+      const downPaymentAmount = Math.ceil(computedTotal * DOWN_PAYMENT_RATE);
+      const balanceDueAmount = computedTotal - downPaymentAmount;
+
       const newBooking: Booking = {
         id: 'MW-' + crypto.randomBytes(3).toString('hex').toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000),
         customerId: customer.id,
@@ -122,7 +134,11 @@ export const BookingController = {
         numberOfAdults: resolvedAdults,
         numberOfChildren: resolvedChildren,
         totalAmount: computedTotal,
+        downPaymentAmount,
+        balanceDueAmount,
+        rulesAccepted: true,
         paymentStatus: 'Pending',
+        bookingStatus: 'Pending',
         qrCodeToken: crypto.randomBytes(16).toString('hex'),
         createdAt: new Date().toISOString(),
         cartItems: resolvedCartItems,
@@ -138,7 +154,7 @@ export const BookingController = {
 
       res.status(201).json({
         success: true,
-        message: `Reservation drafted for: ${cartSummary}. Proceed to payment.`,
+        message: `Reservation drafted for: ${cartSummary}. A 20% down payment of ₱${downPaymentAmount.toLocaleString()} is required to confirm your check-in.`,
         booking: newBooking,
       });
     } catch (error) {
@@ -166,20 +182,21 @@ export const BookingController = {
       }
 
       if (bookings[bookingIdx].paymentStatus === 'Paid') {
-        res.status(400).json({ error: 'This booking has already been paid.' });
+        res.status(400).json({ error: 'The down payment for this booking has already been settled.' });
         return;
       }
 
       bookings[bookingIdx].paymentStatus = 'Paid';
+      bookings[bookingIdx].bookingStatus = 'Confirmed';
       bookings[bookingIdx].paymentMethod = paymentMethod as any;
       await DB.saveBookings(bookings);
 
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
-      await DB.logSecurity(customer.id, `Payment Success: ${paymentMethod} (ID: ${bookingId})`, ip, true);
+      await DB.logSecurity(customer.id, `Down Payment Success: ${paymentMethod} (ID: ${bookingId})`, ip, true);
 
       res.status(200).json({
         success: true,
-        message: `Payment authorized via ${paymentMethod}! Your QR Ticket is issued.`,
+        message: `Down payment authorized via ${paymentMethod}! Your booking is confirmed and your QR Ticket is issued.`,
         booking: bookings[bookingIdx],
       });
     } catch {
@@ -211,6 +228,10 @@ export const BookingController = {
         return;
       }
 
+      const booking = bookings[bookingIdx];
+      // The amount collected up-front is the 20% down payment, not the full fare.
+      const amountDueNow = booking.downPaymentAmount ?? Math.ceil(booking.totalAmount * DOWN_PAYMENT_RATE);
+
       const base64Parts = proofImageBase64.split(';base64,');
       const base64String = base64Parts.length > 1 ? base64Parts[1] : base64Parts[0];
       const buffer = Buffer.from(base64String, 'base64');
@@ -224,7 +245,7 @@ export const BookingController = {
         id: paymentId,
         bookingId,
         customerId: customer.id,
-        amountPaid: bookings[bookingIdx].totalAmount,
+        amountPaid: amountDueNow,
         proofFileName: proofFileUrl,
         uploadedAt: new Date().toISOString(),
         status: 'Pending',
@@ -238,11 +259,11 @@ export const BookingController = {
       await DB.upsertBooking(bookings[bookingIdx]);
 
       const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1') as string;
-      await DB.logSecurity(customer.id, `Uploaded Payment Proof for booking ${bookingId} (Proof Ref: ${paymentId})`, ip, true);
+      await DB.logSecurity(customer.id, `Uploaded Down Payment Proof for booking ${bookingId} (Proof Ref: ${paymentId})`, ip, true);
 
       res.status(200).json({
         success: true,
-        message: 'Your GCash payment proof has been submitted for verification. Please wait for park marshals to confirm your payment!',
+        message: 'Your 20% down payment proof has been submitted for verification. Please wait for park marshals to confirm your check-in!',
         booking: bookings[bookingIdx],
         payment: newPayment,
       });

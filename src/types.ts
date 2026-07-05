@@ -57,6 +57,12 @@ export interface Booking {
   numberOfAdults: number;
   numberOfChildren: number;
   totalAmount: number;
+  /** 20% of totalAmount, required at booking time to confirm the reservation */
+  downPaymentAmount?: number;
+  /** Remaining balance payable on-site (totalAmount - downPaymentAmount) */
+  balanceDueAmount?: number;
+  /** Whether the guest has agreed to the Rules & Regulations waiver */
+  rulesAccepted?: boolean;
   paymentStatus: 'Pending' | 'Pending Verification' | 'Paid' | 'Cancelled' | 'Rejected';
   bookingStatus?: 'Pending' | 'Confirmed' | 'Rejected';
   paymentMethod?: 'GCash' | 'Maya';
