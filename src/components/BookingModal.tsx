@@ -2,8 +2,9 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   X, Plus, Trash2, ChevronDown, ArrowRight, ArrowLeft,
   CheckCircle, Calendar, Clock, ShoppingCart, Home, QrCode,
-  UserPlus, ShieldCheck, ZoomIn, Upload, FileText,
+  UserPlus, ShieldCheck, ZoomIn, Upload, FileText, Check, Download,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { Activity, Cottage, ActivityName, CartItem, Customer, Booking } from '../types';
 import { getPrimaryGuestLabel, getSecondaryGuestLabel, formatActivityPriceSummary } from '../activityPricing';
 
@@ -97,15 +98,18 @@ export default function BookingModal({
     preSelectedCottage,
 }: BookingModalProps) {
   const available = activitiesList.filter((a) => !a.disabled);
-  const defaultActId = preSelectedActivity
-    ? (available.find((a) => a.name === preSelectedActivity)?.id ?? available[0]?.id ?? '')
-    : (available[0]?.id ?? '');
 
-  // ── Step plan (skip Check-In entirely if already signed in) ────────────
+  // ── Step plan (frozen at modal-open time so it can't shift mid-flow) ────
+  // Captured once via lazy useState init — this reflects whether the guest
+  // was logged in when the modal first opened, and never changes again for
+  // the lifetime of this modal instance (even after onAuthenticated updates
+  // the parent's `customer` state mid-flow, e.g. right after registration).
+  const [needsCheckIn] = useState(() => customer === null);
   const steps: StepKey[] = useMemo(
-    () => (customer ? ['activities', 'cottages', 'confirm', 'rules', 'payment']
-                    : ['checkin', 'activities', 'cottages', 'confirm', 'rules', 'payment']),
-    [customer]
+    () => (needsCheckIn
+      ? ['checkin', 'activities', 'cottages', 'confirm', 'rules', 'payment']
+      : ['activities', 'cottages', 'confirm', 'rules', 'payment']),
+    [needsCheckIn]
   );
   const [stepIdx, setStepIdx] = useState(0);
   const currentStep = steps[stepIdx];
@@ -129,7 +133,7 @@ export default function BookingModal({
   const [regEmergencyPhone, setRegEmergencyPhone] = useState('');
   const [regAcceptTerms, setRegAcceptTerms] = useState(false);
 
-  // ── Step: Activities ─────────────────────────────────────────────────────
+  // ── Step: Activities (checkbox / tag-style multi-select) ─────────────────
   const [cart, setCart] = useState<{ activityId: string; primaryQty: number; secondaryQty: number }[]>(() => {
     if (preSelectedActivity) {
       const act = available.find((a) => a.name === preSelectedActivity);
@@ -137,9 +141,16 @@ export default function BookingModal({
     }
     return [];
   });
-  const [pickerActId, setPickerActId] = useState(defaultActId);
-  const [pickerPrimary, setPickerPrimary] = useState(1);
-  const [pickerSecondary, setPickerSecondary] = useState(0);
+
+  // Tap-to-toggle: selecting a card adds it to the cart with a default qty of 1
+  // primary guest; tapping again removes it entirely from the cart.
+  const toggleActivitySelect = (act: Activity) => {
+    setCart((prev) => {
+      const exists = prev.find((c) => c.activityId === act.id);
+      if (exists) return prev.filter((c) => c.activityId !== act.id);
+      return [...prev, { activityId: act.id, primaryQty: 1, secondaryQty: 0 }];
+    });
+  };
 
   // ── Step: Cottages ────────────────────────────────────────────────────────
   const [cottageName, setCottageName] = useState(preSelectedCottage ?? 'None');
@@ -156,10 +167,9 @@ export default function BookingModal({
   // ── Step: Payment ─────────────────────────────────────────────────────────
   const [qrExpanded, setQrExpanded] = useState(false);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [isDownloadingTicket, setIsDownloadingTicket] = useState(false);
 
   // ── Derived totals ──────────────────────────────────────────────────────
-  const pickerAct = available.find((a) => a.id === pickerActId);
-
   const activitiesTotal = cart.reduce((sum, c) => {
     const act = activitiesList.find((a) => a.id === c.activityId);
     return act ? sum + calcLine(act, c.primaryQty, c.secondaryQty) : sum;
@@ -175,26 +185,7 @@ export default function BookingModal({
 
   const today = new Date().toISOString().split('T')[0];
 
-  // ── Cart helpers ────────────────────────────────────────────────────────
-  const addToCart = useCallback(() => {
-    if (!pickerAct || (pickerPrimary <= 0 && pickerSecondary <= 0)) return;
-    setCart((prev) => {
-      const idx = prev.findIndex((c) => c.activityId === pickerActId);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = {
-          ...next[idx],
-          primaryQty: next[idx].primaryQty + pickerPrimary,
-          secondaryQty: next[idx].secondaryQty + pickerSecondary,
-        };
-        return next;
-      }
-      return [...prev, { activityId: pickerActId, primaryQty: pickerPrimary, secondaryQty: pickerSecondary }];
-    });
-    setPickerPrimary(1);
-    setPickerSecondary(0);
-  }, [pickerAct, pickerActId, pickerPrimary, pickerSecondary]);
-
+  // ── Cart qty helpers (used once a card is selected) ─────────────────────
   const removeFromCart = (actId: string) =>
     setCart((prev) => prev.filter((c) => c.activityId !== actId));
 
@@ -370,6 +361,92 @@ export default function BookingModal({
     reader.readAsDataURL(file);
   };
 
+  // ── Step: Success → download a presentable e-ticket (QR + details) as PNG ──
+  const handleDownloadTicket = async () => {
+    if (!createdBooking) return;
+    setIsDownloadingTicket(true);
+    try {
+      const qrDataUrl = await QRCode.toDataURL(
+        JSON.stringify({
+          bookingId: createdBooking.id,
+          token: createdBooking.qrCodeToken,
+          issued: new Date().toISOString(),
+        }),
+        { width: 240, margin: 1, color: { dark: '#1B3022', light: '#FFFFFF' } }
+      );
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 500;
+      canvas.height = 660;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Background
+      ctx.fillStyle = '#FAF9F6';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Header band
+      ctx.fillStyle = '#1B3022';
+      ctx.fillRect(0, 0, canvas.width, 86);
+      ctx.fillStyle = '#A67C52';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('MW ADVENTURE PARK — DUMAGAT RIVER', 24, 32);
+      ctx.fillStyle = '#FAF9F6';
+      ctx.font = 'bold 19px serif';
+      ctx.fillText('Reservation E-Ticket', 24, 60);
+
+      // QR code, centered
+      const qrImg = new Image();
+      await new Promise<void>((resolve, reject) => {
+        qrImg.onload = () => resolve();
+        qrImg.onerror = () => reject(new Error('QR image failed to load'));
+        qrImg.src = qrDataUrl;
+      });
+      const qrSize = 200;
+      ctx.drawImage(qrImg, (canvas.width - qrSize) / 2, 106, qrSize, qrSize);
+
+      // Detail lines
+      let y = 340;
+      const line = (label: string, value: string) => {
+        ctx.fillStyle = '#999';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(label.toUpperCase(), 24, y);
+        ctx.fillStyle = '#1B3022';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(value, 24, y + 16);
+        y += 38;
+      };
+
+      const activityNames = cart
+        .map((c) => activitiesList.find((a) => a.id === c.activityId)?.name)
+        .filter(Boolean)
+        .join(', ') || createdBooking.activityName;
+
+      line('Booking ID', createdBooking.id);
+      line('Guest', sessionCustomer?.fullName || '');
+      line('Activities', activityNames);
+      if (cottageName !== 'None') line('Cottage', cottageName);
+      line('Visit Date', `${bookingDate}  ·  ${scheduleTime}`);
+      line('Grand Total', `₱${grandTotal.toLocaleString()}`);
+      line('Down Payment Paid', `₱${downPaymentDue.toLocaleString()}`);
+      line('Balance Due On-Site', `₱${balanceDue.toLocaleString()}`);
+
+      ctx.fillStyle = '#A67C52';
+      ctx.font = 'italic 10px sans-serif';
+      ctx.fillText('Present this ticket (screen or print) at Dumagat Resort on arrival.', 24, canvas.height - 20);
+
+      const link = document.createElement('a');
+      link.download = `MW-Ticket-${createdBooking.id}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.error('Ticket download failed:', e);
+      showMsg('Could not generate the ticket image. Please try again.', 'error');
+    } finally {
+      setIsDownloadingTicket(false);
+    }
+  };
+
   // ── Navigation guards ─────────────────────────────────────────────────────
 
   const goNext = async () => {
@@ -378,7 +455,7 @@ export default function BookingModal({
 
     if (currentStep === 'activities') {
       if (cart.length === 0) {
-        setInlineError('Please add at least one activity to your cart before continuing.');
+        setInlineError('Please select at least one activity before continuing.');
         return;
       }
       setStepIdx((i) => i + 1);
@@ -445,6 +522,14 @@ export default function BookingModal({
         .bm-cot:hover:not(.selected) { border-color:#A67C52; }
         .bm-cot.selected { border-color:#1B3022; background:#1B3022; color:#FAF9F6; }
         .bm-cot.selected .bm-cot-rate { color:#A67C52; }
+        .bm-act-card { border:1.5px solid rgba(27,48,34,0.12); border-radius:7px; padding:12px 14px;
+                       cursor:pointer; transition:all .15s; background:#fff; }
+        .bm-act-card:hover { border-color:#A67C52; }
+        .bm-act-card.selected { border-color:#1B3022; background:rgba(27,48,34,0.03); }
+        .bm-checkbox { width:20px; height:20px; border-radius:5px; border:1.8px solid rgba(27,48,34,0.25);
+                       display:flex; align-items:center; justify-content:center; flex-shrink:0;
+                       margin-top:1px; transition:all .15s; background:#fff; }
+        .bm-checkbox.checked { background:#1B3022; border-color:#1B3022; }
         .bm-primary-btn { background:#1B3022; color:#FAF9F6; border:none; border-radius:5px;
                           padding:10px 20px; font-size:11px; font-weight:800; letter-spacing:.14em;
                           text-transform:uppercase; cursor:pointer; display:flex; align-items:center;
@@ -456,6 +541,7 @@ export default function BookingModal({
                          letter-spacing:.12em; text-transform:uppercase; cursor:pointer;
                          display:flex; align-items:center; gap:5px; transition:all .15s; font-family:inherit; }
         .bm-ghost-btn:hover { border-color:#1B3022; color:#1B3022; }
+        .bm-ghost-btn:disabled { opacity:.5; cursor:not-allowed; }
         .bm-confirm-btn { background:#A67C52; color:#FAF9F6; border:none; border-radius:5px;
                           padding:10px 22px; font-size:11px; font-weight:800; letter-spacing:.14em;
                           text-transform:uppercase; cursor:pointer; display:flex; align-items:center;
@@ -602,9 +688,24 @@ export default function BookingModal({
                 )}
               </div>
 
-              <button className="bm-primary-btn" onClick={onClose} style={{ margin: '14px auto 0' }}>
-                <QrCode size={13} /> Done
-              </button>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14, flexWrap: 'wrap' }}>
+                <button className="bm-ghost-btn" onClick={handleDownloadTicket} disabled={isDownloadingTicket}>
+                  {isDownloadingTicket ? (
+                    <>
+                      <span style={{ width: 12, height: 12, border: '2px solid rgba(27,48,34,0.25)', borderTop: '2px solid #1B3022', borderRadius: '50%', display: 'inline-block', animation: 'bm-spin 0.75s linear infinite' }} />
+                      Preparing…
+                    </>
+                  ) : (
+                    <><Download size={13} /> Download Ticket</>
+                  )}
+                </button>
+                <button className="bm-primary-btn" onClick={onClose}>
+                  <QrCode size={13} /> Done
+                </button>
+              </div>
+              <p style={{ fontSize: 9.5, color: '#bbb', marginTop: 10, lineHeight: 1.6 }}>
+                Save or print this ticket to present at Dumagat Resort upon arrival, then return here anytime to check your booking status.
+              </p>
             </div>
           )}
 
@@ -658,115 +759,89 @@ export default function BookingModal({
             </div>
           )}
 
-          {/* ── STEP: Activities ───────────────────────────────────────────── */}
+          {/* ── STEP: Activities (checkbox / tag-style multi-select) ─────────── */}
           {!submitted && currentStep === 'activities' && (
             <div className="bm-step">
               <p style={{ fontSize: 11, color: '#999', lineHeight: 1.7, marginBottom: 14 }}>
-                Pick one or more river activities, set guest counts, then click <strong style={{ color: '#1B3022' }}>Add Activities</strong>.
+                Tap an activity to select it, then adjust guest counts. Select as many as you like.
               </p>
 
-              <div style={{ background: '#fff', border: '1px solid rgba(27,48,34,0.1)', borderRadius: 7, padding: 14, marginBottom: 14 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>Select Activity</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                {available.map((act) => {
+                  const inCart = cart.find((c) => c.activityId === act.id);
+                  const isSelected = !!inCart;
+                  return (
+                    <div
+                      key={act.id}
+                      className={`bm-act-card ${isSelected ? 'selected' : ''}`}
+                      onClick={() => toggleActivitySelect(act)}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                        <div className={`bm-checkbox ${isSelected ? 'checked' : ''}`}>
+                          {isSelected && <Check size={12} color="#fff" />}
+                        </div>
 
-                <div style={{ position: 'relative', marginBottom: 13 }}>
-                  <select
-                    value={pickerActId}
-                    onChange={(e) => { setPickerActId(e.target.value); setPickerPrimary(1); setPickerSecondary(0); }}
-                    style={{ width: '100%', appearance: 'none', border: '1.5px solid rgba(27,48,34,0.16)', borderRadius: 5, padding: '9px 32px 9px 11px', fontSize: 12, color: '#1B3022', background: '#FAF9F6', fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer', outline: 'none' }}
-                  >
-                    {available.map((act) => (
-                      <option key={act.id} value={act.id}>
-                        {act.name} — {formatActivityPriceSummary(act)}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#aaa', pointerEvents: 'none' }} />
-                </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#1B3022' : '#333' }}>
+                              {act.name}
+                            </span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#A67C52', fontFamily: 'monospace', flexShrink: 0 }}>
+                              {formatActivityPriceSummary(act)}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 10.5, color: '#999', marginTop: 2 }}>{act.tagline}</div>
 
-                {pickerAct && (
-                  <div style={{ display: 'grid', gridTemplateColumns: pickerAct.childRate > 0 ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: '#A67C52', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>
-                        {getPrimaryGuestLabel(pickerAct)} {pickerAct.adultRate > 0 && <span style={{ color: '#999' }}>· ₱{pickerAct.adultRate}</span>}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button className="bm-qty" onClick={() => setPickerPrimary(Math.max(0, pickerPrimary - 1))}>−</button>
-                        <span style={{ fontSize: 15, fontWeight: 800, width: 22, textAlign: 'center', color: '#1B3022' }}>{pickerPrimary}</span>
-                        <button className="bm-qty" onClick={() => setPickerPrimary(pickerPrimary + 1)}>+</button>
+                          {isSelected && inCart && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', background: '#fff', border: '1px solid rgba(27,48,34,0.08)', borderRadius: 6, padding: 10 }}
+                            >
+                              <div>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: '#A67C52', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
+                                  {getPrimaryGuestLabel(act)}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                  <button className="bm-qty" style={{ width: 24, height: 24 }} onClick={() => updateQty(act.id, 'primaryQty', -1)}>−</button>
+                                  <span style={{ fontSize: 13, fontWeight: 800, width: 18, textAlign: 'center' }}>{inCart.primaryQty}</span>
+                                  <button className="bm-qty" style={{ width: 24, height: 24 }} onClick={() => updateQty(act.id, 'primaryQty', 1)}>+</button>
+                                </div>
+                              </div>
+
+                              {act.childRate > 0 && (
+                                <div>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: '#A67C52', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
+                                    {getSecondaryGuestLabel(act)}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                    <button className="bm-qty" style={{ width: 24, height: 24 }} onClick={() => updateQty(act.id, 'secondaryQty', -1)}>−</button>
+                                    <span style={{ fontSize: 13, fontWeight: 800, width: 18, textAlign: 'center' }}>{inCart.secondaryQty}</span>
+                                    <button className="bm-qty" style={{ width: 24, height: 24 }} onClick={() => updateQty(act.id, 'secondaryQty', 1)}>+</button>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div style={{ marginLeft: 'auto', fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: '#1B3022' }}>
+                                ₱{calcLine(act, inCart.primaryQty, inCart.secondaryQty).toLocaleString()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    {pickerAct.childRate > 0 && (
-                      <div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: '#A67C52', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>
-                          {getSecondaryGuestLabel(pickerAct)} {pickerAct.childRate > 0 && <span style={{ color: '#999' }}>· ₱{pickerAct.childRate}</span>}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <button className="bm-qty" onClick={() => setPickerSecondary(Math.max(0, pickerSecondary - 1))}>−</button>
-                          <span style={{ fontSize: 15, fontWeight: 800, width: 22, textAlign: 'center', color: '#1B3022' }}>{pickerSecondary}</span>
-                          <button className="bm-qty" onClick={() => setPickerSecondary(pickerSecondary + 1)}>+</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <button className="bm-add-btn" onClick={addToCart} disabled={!pickerAct || (pickerPrimary <= 0 && pickerSecondary <= 0)}>
-                  <Plus size={13} /> Add Activities
-                </button>
+                  );
+                })}
               </div>
 
               {cart.length > 0 ? (
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.16em', color: '#888', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <ShoppingCart size={10} /> Your Cart ({cart.length} {cart.length === 1 ? 'item' : 'items'})
-                  </div>
-                  <div style={{ border: '1px solid rgba(27,48,34,0.09)', borderRadius: 7, overflow: 'hidden' }}>
-                    {cart.map((c, idx) => {
-                      const act = activitiesList.find((a) => a.id === c.activityId);
-                      if (!act) return null;
-                      const line = calcLine(act, c.primaryQty, c.secondaryQty);
-                      return (
-                        <div key={c.activityId} style={{ padding: '11px 13px', background: idx % 2 === 0 ? '#fff' : '#FAF9F6', borderBottom: idx < cart.length - 1 ? '1px solid rgba(27,48,34,0.06)' : 'none' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#1B3022' }}>{act.name}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                              <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'monospace', color: '#1B3022' }}>₱{line.toLocaleString()}</span>
-                              <button onClick={() => removeFromCart(c.activityId)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', padding: 0, display: 'flex', transition: 'color .15s' }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = '#e53e3e')}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = '#ccc')}>
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <span style={{ fontSize: 9, color: '#bbb', fontWeight: 700, textTransform: 'uppercase' }}>{getPrimaryGuestLabel(act)}</span>
-                              <button className="bm-qty" style={{ width: 22, height: 22, fontSize: 12 }} onClick={() => updateQty(c.activityId, 'primaryQty', -1)}>−</button>
-                              <span style={{ fontSize: 12, fontWeight: 800, width: 18, textAlign: 'center', color: '#1B3022' }}>{c.primaryQty}</span>
-                              <button className="bm-qty" style={{ width: 22, height: 22, fontSize: 12 }} onClick={() => updateQty(c.activityId, 'primaryQty', 1)}>+</button>
-                            </div>
-                            {act.childRate > 0 && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <span style={{ fontSize: 9, color: '#bbb', fontWeight: 700, textTransform: 'uppercase' }}>{getSecondaryGuestLabel(act)}</span>
-                                <button className="bm-qty" style={{ width: 22, height: 22, fontSize: 12 }} onClick={() => updateQty(c.activityId, 'secondaryQty', -1)}>−</button>
-                                <span style={{ fontSize: 12, fontWeight: 800, width: 18, textAlign: 'center', color: '#1B3022' }}>{c.secondaryQty}</span>
-                                <button className="bm-qty" style={{ width: 22, height: 22, fontSize: 12 }} onClick={() => updateQty(c.activityId, 'secondaryQty', 1)}>+</button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 2px 0', fontSize: 13, fontWeight: 800, color: '#1B3022' }}>
-                    <span>Activities Subtotal</span>
-                    <span style={{ fontFamily: 'monospace' }}>₱{activitiesTotal.toLocaleString()}</span>
-                  </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 2px 0', fontSize: 13, fontWeight: 800, color: '#1B3022', borderTop: '1px dashed #ddd' }}>
+                  <span>Activities Subtotal ({cart.length} selected)</span>
+                  <span style={{ fontFamily: 'monospace' }}>₱{activitiesTotal.toLocaleString()}</span>
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '22px 0', color: '#ccc', fontSize: 12 }}>
                   <ShoppingCart size={30} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.5 }} />
-                  Add at least one activity to continue
+                  Select at least one activity to continue
                 </div>
               )}
             </div>

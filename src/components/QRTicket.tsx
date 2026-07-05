@@ -1,6 +1,10 @@
 import React, { useEffect, useRef } from 'react';
+import {
+  X, Plus, Trash2, ChevronDown, ArrowRight, ArrowLeft,
+  CheckCircle, Calendar, Clock, ShoppingCart, Home, QrCode,
+  UserPlus, ShieldCheck, ZoomIn, Upload, FileText, Check, Download,
+} from 'lucide-react';
 import QRCode from 'qrcode';
-
 interface QRTicketProps {
   token: string;
   bookingId: string;
