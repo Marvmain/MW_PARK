@@ -49,7 +49,7 @@ export default function ActivityDetailModal({
             src={activity.image} 
             alt={activity.name}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover opacity-80 mix-blend-luminosity hover:opacity-100 hover:mix-blend-normal transition-all duration-700"
+            className="w-full h-full object-contain object-center opacity-95 mix-blend-luminosity hover:opacity-100 hover:mix-blend-normal transition-all duration-700 bg-white"
           />
           {/* Black gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-6 text-white">

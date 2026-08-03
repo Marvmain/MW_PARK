@@ -42,7 +42,7 @@ const COTTAGE_RATES: Record<string, number> = {
   'Dumagat Stilt Lodge': 2800,
   'Forest Canopy Treehouse': 2000,
   'Pandan Bamboo Shelter': 800,
-  None: 0,
+  'None': 0,
 };
 
 const TIME_SLOTS = ['08:00 AM', '10:30 AM', '01:30 PM', '04:00 PM'] as const;
@@ -341,7 +341,7 @@ export default function BookingModal({
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          showMsg(data.message || 'Down payment proof submitted for verification!', 'success');
+          showMsg('Thank you for booking! We will message you once your booking is approved.', 'success');
           setSubmitted(true);
           onSuccess();
         } else {
@@ -433,12 +433,13 @@ export default function BookingModal({
 
       ctx.fillStyle = '#A67C52';
       ctx.font = 'italic 10px sans-serif';
-      ctx.fillText('Present this ticket (screen or print) at Dumagat Resort on arrival.', 24, canvas.height - 20);
+      ctx.fillText('Present this ticket at the staff area to pay your full balance on-site.', 24, canvas.height - 20);
 
       const link = document.createElement('a');
       link.download = `MW-Ticket-${createdBooking.id}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
+      onClose();
     } catch (e) {
       console.error('Ticket download failed:', e);
       showMsg('Could not generate the ticket image. Please try again.', 'error');
@@ -570,11 +571,11 @@ export default function BookingModal({
         <div style={{ background: '#1B3022', padding: '18px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.22em', color: '#A67C52', textTransform: 'uppercase', marginBottom: 3 }}>
-              {submitted ? 'Down Payment Submitted' : `Step ${stepIdx + 1} of ${steps.length}`}
+              {submitted ? 'Booking Submitted' : `Step ${stepIdx + 1} of ${steps.length}`}
             </div>
             <div style={{ fontFamily: "'Playfair Display', 'Georgia', serif", fontSize: 18, fontWeight: 700, color: '#FAF9F6', lineHeight: 1.2 }}>
               {submitted
-                ? '🎉 Check-In Almost Complete!'
+                ? 'Thank You for Booking!'
                 : currentStep === 'checkin' ? 'Guest Check-In'
                 : currentStep === 'activities' ? 'Select Activities'
                 : currentStep === 'cottages' ? 'Add a Cottage (Optional)'
@@ -642,10 +643,10 @@ export default function BookingModal({
               <div style={{ width: 68, height: 68, background: 'rgba(27,48,34,0.08)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                 <CheckCircle size={34} color="#1B3022" />
               </div>
-              <p style={{ fontSize: 12, color: '#888', lineHeight: 1.75, maxWidth: 360, margin: '0 auto 18px' }}>
-                Your 20% down payment proof has been submitted. Once park marshals verify it, your booking is
-                confirmed and your QR entry ticket will appear under <strong>Bookings &amp; QR Tickets</strong>.
-                The remaining balance of <strong>₱{balanceDue.toLocaleString()}</strong> is payable on-site.
+              <p style={{ fontSize: 12, color: '#888', lineHeight: 1.75, maxWidth: 380, margin: '0 auto 18px' }}>
+                Thank you for booking! We will message you once your booking is approved.
+                Please download your ticket below and present it at the <strong>staff area</strong> (or to park
+                personnel) so you can pay your full balance of <strong>₱{balanceDue.toLocaleString()}</strong> on-site.
               </p>
 
               <div style={{ background: '#fff', border: '1px solid rgba(27,48,34,0.1)', borderRadius: 7, padding: '14px 16px', marginBottom: 6, textAlign: 'left' }}>
@@ -689,22 +690,19 @@ export default function BookingModal({
               </div>
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14, flexWrap: 'wrap' }}>
-                <button className="bm-ghost-btn" onClick={handleDownloadTicket} disabled={isDownloadingTicket}>
+                <button className="bm-primary-btn" onClick={handleDownloadTicket} disabled={isDownloadingTicket}>
                   {isDownloadingTicket ? (
                     <>
-                      <span style={{ width: 12, height: 12, border: '2px solid rgba(27,48,34,0.25)', borderTop: '2px solid #1B3022', borderRadius: '50%', display: 'inline-block', animation: 'bm-spin 0.75s linear infinite' }} />
+                      <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid #fff', borderRadius: '50%', display: 'inline-block', animation: 'bm-spin 0.75s linear infinite' }} />
                       Preparing…
                     </>
                   ) : (
                     <><Download size={13} /> Download Ticket</>
                   )}
                 </button>
-                <button className="bm-primary-btn" onClick={onClose}>
-                  <QrCode size={13} /> Done
-                </button>
               </div>
               <p style={{ fontSize: 9.5, color: '#bbb', marginTop: 10, lineHeight: 1.6 }}>
-                Save or print this ticket to present at Dumagat Resort upon arrival, then return here anytime to check your booking status.
+                After downloading, this screen will close automatically. Save or print your ticket and show it at the staff area to complete payment.
               </p>
             </div>
           )}

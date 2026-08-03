@@ -115,7 +115,7 @@ export default function CottagesCatalog({
                   src={cot.image} 
                   alt={cot.name}
                   referrerPolicy="no-referrer"
-                  className={`w-full h-full object-cover opacity-90 group-hover:scale-105 group-hover:opacity-100 transition-all duration-700 mix-blend-luminosity group-hover:mix-blend-normal ${cot.disabled ? 'grayscale brightness-50' : ''}`}
+                  className={`w-full h-full object-contain object-center opacity-95 group-hover:scale-105 group-hover:opacity-100 transition-all duration-700 ${cot.disabled ? 'grayscale brightness-50' : ''}`}
                 />
                 
                 {/* Elevation stilt badge */}

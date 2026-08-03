@@ -110,7 +110,7 @@ export default function ActivitiesCatalog({
                   src={act.image} 
                   alt={act.name}
                   referrerPolicy="no-referrer"
-                  className={`w-full h-full object-cover opacity-90 group-hover:scale-105 group-hover:opacity-100 transition-all duration-700 mix-blend-luminosity group-hover:mix-blend-normal ${act.disabled ? 'grayscale brightness-50' : ''}`}
+                  className={`w-full h-full object-contain object-center bg-white opacity-95 group-hover:scale-105 group-hover:opacity-100 transition-all duration-700 ${act.disabled ? 'grayscale brightness-50' : ''}`}
                 />
                 
                 {/* Difficulty tag left block overlay */}

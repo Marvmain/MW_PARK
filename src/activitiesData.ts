@@ -14,7 +14,7 @@ export const ACTIVITIES_DATA: Activity[] = [
     childRate: 500,
     primaryRateLabel: 'Small Kawa',
     secondaryRateLabel: 'Big Kawa',
-    image: 'https://scontent.fcgy2-4.fna.fbcdn.net/v/t39.30808-6/711249130_1318556340417001_7944872399149604403_n.jpg?stp=dst-jpg_tt6&cstp=mx1080x1440&ctp=s1080x1440&_nc_cat=110&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeGlEZADHRtJ72pGA8tELaK_kP9t96WN-WGQ_233pY35YS5yyrP_g5HJtZa4zeobQIDausmqkhgFVxYCRWyEaBWY&_nc_ohc=ZQuvtFklMy8Q7kNvwE9Q7kd&_nc_oc=AdpQ02yac8IC0kch6zBGbjW78YgV9ggStEgCDTxlFBoxiiEgkPqLRyZF0xvC9ATCanyPLCvoagreWdWkMAg5XSA5&_nc_zt=23&_nc_ht=scontent.fcgy2-4.fna&_nc_gid=Cq7eIU8xqKJNFPaymNJIQw&_nc_ss=7b2a8&oh=00_Af8OrWv8mXg6w2kMi6q0pHbGxJ9REfIIkfT-tHUr5TUMRQ&oe=6A29F64E',
+    image: '/assets/images/kawa.jpg',
     highlights: [
       'Small kawa (₱350) for 1–2 guests',
       'Big kawa (₱500) for groups',
@@ -47,7 +47,7 @@ export const ACTIVITIES_DATA: Activity[] = [
     childRate: 150,
     primaryRateLabel: 'Per Head',
     secondaryRateLabel: 'Per Head',
-    image: 'https://static.tripzilla.ph/media/115403/conversions/99093_800x-w768.webp',
+    image: '/assets/images/act_fish_spa.svg',
     highlights: [
       '₱150 per head for 1 hour',
       'Natural exfoliation experience',
@@ -80,7 +80,7 @@ export const ACTIVITIES_DATA: Activity[] = [
     childRate: 350,
     primaryRateLabel: 'Single',
     secondaryRateLabel: 'Double',
-    image: 'https://scontent.fcgy2-2.fna.fbcdn.net/v/t39.30808-6/709449524_27614482554826519_86063211436610131_n.jpg?stp=cp6_dst-jpg_tt6&cstp=mx1536x2048&ctp=s1536x2048&_nc_cat=104&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeFy7DbSUGuubQZnZ18X6tRS_J6c54IKPUf8npznggo9R0BaNYSe538Nv4WM1fOZTU73jikGZoFxFZ67ML8c50yO&_nc_ohc=r_eaBQXriAsQ7kNvwHB0kJx&_nc_oc=AdrdIHh10ZgHTPUwn5QVOc4znHCDs85YYzldiNZ-L8QmX-wRIGaTPtqlv4wIb1Bg9t5Kq8SIeN6bA-qZ3byMW5o2&_nc_zt=23&_nc_ht=scontent.fcgy2-2.fna&_nc_gid=yHBthVWX_e7lO_8foL9Heg&_nc_ss=7b2a8&oh=00_Af8Z5yuYYXMpUyFIhmSW6lfHwYMLF1Jk-1VyOp5UysYydg&oe=6A29E808',
+    image: '/assets/images/act_kayak.svg',
     highlights: [
       'Single kayak — ₱200',
       'Double kayak — ₱350',
@@ -113,7 +113,7 @@ export const ACTIVITIES_DATA: Activity[] = [
     childRate: 50,
     primaryRateLabel: 'Per Tube',
     secondaryRateLabel: 'Per Tube',
-    image: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjCuASeuE-H5-cTxGhlc6GL3_Xaj7hM5D_54EpsQ9y94Ok8KRYu8kCGnBkVd9Hmka3mRiwDvhEA9k6HRYEaZniiNvhuOZxvRW0aHioprAKTb_QTxA7B6OS_dzcoVLdFhx6UZ_Ynh-VcSaY/s1600/PANDAN+TO+BORACAY-0233.jpg',
+    image: '/assets/images/act_tub_rent.svg',
     highlights: [
       '₱50 per tube',
       'Easy river float experience',
@@ -145,7 +145,7 @@ export const ACTIVITIES_DATA: Activity[] = [
     childRate: 50,
     primaryRateLabel: 'Per Vest',
     secondaryRateLabel: 'Per Vest',
-    image: 'https://scontent.fcgy2-2.fna.fbcdn.net/v/t51.82787-15/711738697_17994427652959529_9101698408211654653_n.jpg?stp=dst-jpg_tt6&cstp=mx1440x1800&ctp=s640x640&_nc_cat=109&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeHBtgP97xDZV79dB1PKsxISsR6WFaAC3YqxHpYVoALdiiq5D_dCrlOkSMKEsCrs7E2vNXoscyE5E5CZ0JFFQ5Bl&_nc_ohc=iw7shF_RmCsQ7kNvwF4X6iZ&_nc_oc=Adoh4vbGVzWhsyIkvIKlAKcEjn46a9sL9AFf4gqoLYSeZduqBBrWfXwkB192axjUAayPeFXQKaHxtLHqvoO6qY3h&_nc_zt=23&_nc_ht=scontent.fcgy2-2.fna&_nc_gid=5sKYw8VtpBv8UAPLv-bKUg&_nc_ss=7b2a8&oh=00_Af-GuFKS5KRL9hJ9EuR2IRqsoIPZ5X6vXE4BJiNgg_kYsg&oe=6A29E202',
+    image: '/assets/images/vest.jpg',
     highlights: [
       '₱50 per vest',
       'Certified flotation devices',
@@ -176,7 +176,7 @@ export const ACTIVITIES_DATA: Activity[] = [
     childRate: 0,
     primaryRateLabel: 'Free',
     secondaryRateLabel: 'Free',
-    image: 'https://scontent.fcgy2-2.fna.fbcdn.net/v/t39.30808-6/714759256_4422657201310788_4993385344900131654_n.jpg?stp=dst-jpg_tt6&cstp=mx2048x2048&ctp=s2048x2048&_nc_cat=104&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeErd_kE8ugbRRGkB7ndfuJ_xCGnTHhuZHPEIadMeG5kc8-WA5SS3LU6A1mE7OF9DIeLY2efGHZM9rlSNtusAXCy&_nc_ohc=PftKYLScFw4Q7kNvwFxbSbu&_nc_oc=Adq6Xz2CMqlkyvbo6RmGnffD9A6EHBRXbtRwcy_K_Zt7SNwmkWXgF__ASj3DSPUH2Lyjjl_nLpht_CvswaInrjYT&_nc_zt=23&_nc_ht=scontent.fcgy2-2.fna&_nc_gid=hTNtBtuTZb5nXEt_YXTZcQ&_nc_ss=7b2a8&oh=00_Af_w1vgspEi9ExH8jcS6xWMxMcZBEbc1KtbtGK8xBhxqmA&oe=6A29F23F',
+    image: '/assets/images/web.jpg',
     highlights: [
       'Completely free',
       'Giant rope climbing net',
